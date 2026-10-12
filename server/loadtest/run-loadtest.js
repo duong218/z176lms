@@ -1,6 +1,6 @@
 /**
  * Tạo tải mô phỏng N thí sinh ảo, mỗi người làm đúng luồng của client thật:
- * đăng nhập -> bắt đầu thi -> (heartbeat 15s, /auth/me 5s, chuông 30s, lưu đáp án ~45s) -> nộp bài.
+ * đăng nhập -> bắt đầu thi -> (heartbeat 15s, /auth/me 15s, chuông 30s, lưu đáp án ~45s) -> nộp bài.
  * Dùng fetch có sẵn của Node 22, không cài thêm thư viện.
  *
  * Chạy: node loadtest/run-loadtest.js --users 200 --ramp 20 --duration 90 [--base http://127.0.0.1:5000]
@@ -21,7 +21,7 @@ const TIMEOUT_MS = 30_000;
 const DO_SUBMIT = (argv.submit ?? '1') !== '0'; // --submit 0: bỏ bước nộp bài (vd khi chạy trên FerretDB không hỗ trợ findAndModify projection)
 
 const HEARTBEAT_MS = 15_000;
-const ME_MS = 5_000;
+const ME_MS = 15_000;
 const UNREAD_MS = 30_000;
 const ANSWER_MS = 45_000;
 

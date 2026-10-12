@@ -40,7 +40,7 @@ const ACTIVE_EXAM_POLL_INTERVAL_MS = 60_000;
 // access token cũ lập tức bị thu hồi — xem auth.service.js). 5s theo đúng yêu
 // cầu: phát hiện gần như ngay lập tức, không bắt người dùng cũ chờ lâu mà
 // không hiểu vì sao thao tác bị chặn.
-const SESSION_CHECK_INTERVAL_MS = 5_000;
+const SESSION_CHECK_INTERVAL_MS = 15_000; // 15s: heartbeat/lưu đáp án cũng đã kiểm tra phiên (tokenVersion), không cần dò mỗi 5s
 
 // App được tách làm 2 lớp: AppShell (bọc ToastProvider + ConfirmProvider) và
 // App (nội dung thật, dùng được hook useToast()/useConfirm() vì đã nằm bên

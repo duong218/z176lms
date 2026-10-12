@@ -47,7 +47,7 @@ async function main() {
 
   // --- Khởi chạy HTTP Server ---
   const app = createApp();
-  app.listen(env.port, () => {
+  const server = app.listen(env.port, () => {
     // eslint-disable-next-line no-console -- startup banner only
     console.info(
       [
@@ -61,6 +61,9 @@ async function main() {
       ].join('\n'),
     );
   });
+  // Node mặc định đóng kết nối rảnh sau 5s -> client poll 5-15s liên tục phải mở lại kết nối. headersTimeout phải > keepAliveTimeout.
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
 }
 
 // Bắt lỗi ngoại lệ khi khởi động server

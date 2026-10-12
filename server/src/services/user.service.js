@@ -4,6 +4,7 @@
  */
 
 import bcrypt from 'bcrypt';
+import { env } from '../config/env.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import XLSX from 'xlsx';
@@ -59,7 +60,7 @@ export async function listUsers() {
 // Sinh ngẫu nhiên mật khẩu tạm 6 chữ số và mã hóa bcrypt hash
 async function generateTempPassword() {
   const tempPassword = crypto.randomInt(100000, 999999).toString();
-  const passwordHash = await bcrypt.hash(tempPassword, 12);
+  const passwordHash = await bcrypt.hash(tempPassword, env.bcryptSaltRounds);
   return { tempPassword, passwordHash };
 }
 
