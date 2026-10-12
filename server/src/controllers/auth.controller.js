@@ -10,7 +10,7 @@ import {
   logoutUser,
   refreshAccessToken,
   refreshCookieOptions,
-  getAuthProfile,
+  getProfileFromAuth,
 } from '../services/auth.service.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { ApiError } from '../utils/api-error.js';
@@ -67,7 +67,7 @@ export const logout = asyncHandler(async (req, res) => {
 
 // Lấy thông tin tài khoản và hồ sơ nhân viên của người dùng đang đăng nhập
 export const me = asyncHandler(async (req, res) => {
-  const profile = await getAuthProfile(req.auth.userId);
+  const profile = await getProfileFromAuth(req.auth);
   res.json({
     success: true,
     message: 'OK',
@@ -99,4 +99,3 @@ export const changePasswordHandler = asyncHandler(async (req, res) => {
     code: 'AUTH_PASSWORD_CHANGED',
   });
 });
-

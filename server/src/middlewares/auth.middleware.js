@@ -4,8 +4,21 @@
  */
 
 import { verifyAccessToken, getAuthProfile } from '../services/auth.service.js';
-import { User } from '../models/index.js';
+import { User, Role } from '../models/index.js';
 import { ApiError } from '../utils/api-error.js';
+
+// MỚI — Cache vai trò trong bộ nhớ (vai trò rất ít đổi) để KHÔNG phải truy vấn Role ở MỌI request.
+// KHÔNG cache User: isActive + tokenVersion vẫn đọc DB ở mỗi request nên thu hồi phiên vẫn tức thì (SKILLS.md mục 4, nguyên tắc 4).
+const ROLE_CACHE_TTL_MS = 10_000;
+const roleCache = new Map();
+async function getRoleCached(roleId) {
+  const key = String(roleId);
+  const hit = roleCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.role;
+  const role = await Role.findById(roleId).select('code name isActive').lean();
+  if (role) roleCache.set(key, { role, expiresAt: Date.now() + ROLE_CACHE_TTL_MS });
+  return role;
+}
 
 // Hàm phụ trợ tách Bearer Token từ header Authorization
 function extractBearerToken(req) {
@@ -25,11 +38,14 @@ export async function authenticate(req, _res, next) {
     }
 
     const payload = verifyAccessToken(token);
-    const user = await User.findById(payload.sub).populate('roleId');
+    // MỚI — chỉ lấy đúng các trường cần dùng + lean() (không dựng document Mongoose) vì hàm này chạy ở MỌI request.
+    const user = await User.findById(payload.sub)
+      .select('username isActive tokenVersion mustChangePassword roleId')
+      .lean();
     if (!user || !user.isActive) {
       throw new ApiError(401, 'Phiên không hợp lệ', 'AUTH_ACCESS_INVALID');
     }
-    const role = user.roleId;
+    const role = await getRoleCached(user.roleId);
     if ((user.tokenVersion ?? 0) !== (payload.tv ?? 0)) {
       // Token cũ mang vai trò khác vai trò hiện tại -> admin vừa đổi vai trò (khác với đăng nhập nơi khác / đổi mật khẩu)
       if (payload.roleCode && role?.code && payload.roleCode !== role.code) {
@@ -48,6 +64,7 @@ export async function authenticate(req, _res, next) {
       username: user.username,
       roleId: role._id.toString(),
       roleCode: role.code,
+      roleName: role.name,
       mustChangePassword: user.mustChangePassword,
     };
 

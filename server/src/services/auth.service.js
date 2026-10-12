@@ -3,7 +3,7 @@
  * Xử lý ký/xác minh JWT Token, đăng nhập bảo mật, chống tấn công brute-force và cơ chế đơn phiên (Single Active Session).
  */
 
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt'; // MỚI — bản native (chạy ở thread pool, không chặn event loop như bcryptjs); đã dùng sẵn ở user.service.js
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { Employee, Role, User } from '../models/index.js';
@@ -28,6 +28,15 @@ async function buildUserPayload(user, role) {
     roleName: role?.name,
     mustChangePassword: user.mustChangePassword,
   };
+}
+
+// MỚI — Dựng hồ sơ từ req.auth do middleware authenticate đã xác thực (isActive + tokenVersion + vai trò),
+// tránh đọc lại User/Role lần thứ 2 ở GET /auth/me (client gọi định kỳ mỗi 5 giây).
+export async function getProfileFromAuth(auth) {
+  return buildUserPayload(
+    { _id: auth.userId, username: auth.username, mustChangePassword: auth.mustChangePassword },
+    { code: auth.roleCode, name: auth.roleName },
+  );
 }
 
 // Cấu hình Cookie an toàn cho Refresh Token
