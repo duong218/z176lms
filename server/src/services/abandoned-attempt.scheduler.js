@@ -6,13 +6,14 @@
 
 import cron from 'node-cron';
 import { finalizeAbandonedAttempts } from './exam-attempt.service.js';
+import { examService } from './exam.service.js';
 
 const CRON_EXPRESSION = '* * * * *'; // mỗi phút
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
 
 let running = false; // chống chồng lượt khi một lần quét kéo dài quá 1 phút
 
-// Hàm thực thi tác vụ nộp bài các lượt thi bị bỏ rơi
+// Hàm thực thi tác vụ nộp bài các lượt thi bị bỏ rơi & tự động lưu trữ kỳ thi hết hạn
 async function runAbandonedAttemptSweep() {
   if (running) return;
   running = true;
@@ -21,8 +22,16 @@ async function runAbandonedAttemptSweep() {
     if (finalized > 0 || failed > 0) {
       console.log(`[abandoned-attempt] Đã tự nộp ${finalized} lượt thi bị bỏ rơi` + (failed > 0 ? `, lỗi ${failed} lượt` : ''));
     }
+
+    // Tự động lưu trữ các kỳ thi đã quá hạn (endDate) khi không còn thí sinh nào làm bài dở
+    const archivedExams = await examService.archiveExpiredExams();
+    if (archivedExams.length > 0) {
+      console.log(
+        `[scheduler] Đã tự động lưu trữ ${archivedExams.length} kỳ thi hết hạn: ${archivedExams.map((e) => e.title).join(', ')}`,
+      );
+    }
   } catch (err) {
-    console.error('[abandoned-attempt] Quét lượt thi bị bỏ rơi thất bại:', err.message);
+    console.error('[abandoned-attempt] Quét lượt thi và lưu trữ kỳ thi thất bại:', err.message);
   } finally {
     running = false;
   }
