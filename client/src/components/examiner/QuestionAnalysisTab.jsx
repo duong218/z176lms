@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, BarChart3, Info } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, ChevronUp, BarChart3, Info } from 'lucide-react';
 import { fetchQuestionAnalysis } from '../../services/analytics.service';
 import { Pagination } from '../Pagination';
 
@@ -21,6 +21,121 @@ const Stat = ({ label, value, warn }) => (
     <p className={`text-2xl font-bold mt-0.5 ${warn ? 'text-[#B7791F]' : 'text-[#0F172A]'}`}>{value}</p>
   </div>
 );
+
+/**
+ * Ô lọc chủ đề tự dựng thay cho <select> native. Danh sách xổ xuống của <select> do trình duyệt vẽ nên có thể rộng hơn
+ * khung (tràn ra ngoài màn hình điện thoại) và không chỉnh được bằng CSS; bản tự dựng luôn nằm trong chiều rộng khung,
+ * tên chủ đề dài tự xuống dòng, danh sách tối đa 256px rồi cuộn. Dùng chung cho desktop và mobile.
+ * Hỗ trợ bàn phím: ↑/↓ di chuyển, Enter/Space chọn, Esc đóng.
+ */
+const TopicFilter = ({ value, topics, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const rootRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const options = useMemo(
+    () => [{ value: 'all', label: 'Mọi chủ đề' }, ...topics.map((t) => ({ value: t, label: t }))],
+    [topics]
+  );
+  const selectedIndex = Math.max(0, options.findIndex((o) => o.value === value));
+  const current = options[selectedIndex];
+
+  // Bấm ra ngoài hoặc nhấn Esc để đóng
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointer = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    const onEsc = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('touchstart', onPointer);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('touchstart', onPointer);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  // Giữ mục đang di chuyển bằng phím luôn nằm trong vùng nhìn thấy của danh sách
+  useEffect(() => {
+    if (open) menuRef.current?.children[active]?.scrollIntoView({ block: 'nearest' });
+  }, [open, active]);
+
+  const openMenu = () => {
+    setActive(selectedIndex);
+    setOpen(true);
+  };
+  const choose = (v) => {
+    setOpen(false);
+    if (v !== value) onChange(v);
+  };
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) {
+        openMenu();
+        return;
+      }
+      setActive((i) => (e.key === 'ArrowDown' ? Math.min(options.length - 1, i + 1) : Math.max(0, i - 1)));
+    } else if ((e.key === 'Enter' || e.key === ' ') && open) {
+      e.preventDefault();
+      choose(options[active].value);
+    }
+  };
+
+  return (
+    <div ref={rootRef} className="relative w-full sm:ml-auto sm:w-64">
+      <button
+        type="button"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onKeyDown}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls="qa-topic-listbox"
+        aria-label="Lọc theo chủ đề"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-[#CBD5E1] bg-white text-left text-base text-[#0F172A] min-touch-target focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#008BC5]"
+      >
+        <span className="truncate">{current.label}</span>
+        <ChevronDown
+          className={`w-4 h-4 shrink-0 text-[#64748B] transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <ul
+          ref={menuRef}
+          id="qa-topic-listbox"
+          role="listbox"
+          className="absolute left-0 right-0 sm:left-auto sm:w-80 sm:max-w-[calc(100vw-2rem)] z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-lg"
+        >
+          {options.map((o, i) => {
+            const selected = o.value === value;
+            return (
+              <li
+                key={o.value}
+                role="option"
+                aria-selected={selected}
+                onClick={() => choose(o.value)}
+                onMouseEnter={() => setActive(i)}
+                className={`flex items-start justify-between gap-2 px-3 py-2.5 min-h-[44px] cursor-pointer text-base break-words ${
+                  selected ? 'font-semibold text-[#1D4ED8]' : 'text-[#0F172A]'
+                } ${i === active ? 'bg-[#EFF6FF]' : ''}`}
+              >
+                <span className="min-w-0">{o.label}</span>
+                {selected && <Check className="w-4 h-4 shrink-0 mt-1" aria-hidden="true" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 /** Phân tích chất lượng câu hỏi từ kỳ thi chính thức: tỷ lệ đúng, độ phân biệt, đáp án nhiễu. */
 export const QuestionAnalysisTab = () => {
@@ -139,19 +254,7 @@ export const QuestionAnalysisTab = () => {
               Có cảnh báo ({flaggedCount})
             </button>
           </div>
-          <select
-            value={topic}
-            onChange={(e) => changeFilter(() => setTopic(e.target.value))}
-            aria-label="Lọc theo chủ đề"
-            className="sm:ml-auto w-full sm:w-64 px-3 py-2.5 rounded-lg border border-[#CBD5E1] bg-white text-base text-[#0F172A] min-touch-target"
-          >
-            <option value="all">Mọi chủ đề</option>
-            {topics.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          <TopicFilter value={topic} topics={topics} onChange={(v) => changeFilter(() => setTopic(v))} />
         </div>
       </div>
 
