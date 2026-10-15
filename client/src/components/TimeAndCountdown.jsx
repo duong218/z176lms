@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, Info } from 'lucide-react';
+import { getExamPhase, getCountdownTarget, splitDuration, COUNTDOWN_LABEL } from '../lib/examPhase';
 
 export const TimeAndCountdown = ({ activeExam }) => {
   const [timeLeft, setTimeLeft] = useState({
@@ -9,27 +10,20 @@ export const TimeAndCountdown = ({ activeExam }) => {
     seconds: 0,
   });
 
+  // Giai đoạn kỳ thi đổi theo giờ (chưa mở -> đang mở -> đã kết thúc) nên tính lại ở mỗi nhịp 1 giây.
+  const [phase, setPhase] = useState(() => getExamPhase(activeExam));
+
   useEffect(() => {
-    if (!activeExam || !activeExam.endDate) return;
+    if (!activeExam || !activeExam.endDate) return undefined;
 
-    const targetDate = new Date(activeExam.endDate).getTime();
-
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const difference = targetDate - now;
-
-      if (difference > 0) {
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-        setTimeLeft({ days, hours, minutes, seconds });
-      } else {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      }
-    }, 1000);
-
+    const tick = () => {
+      const p = getExamPhase(activeExam);
+      const target = getCountdownTarget(activeExam, p);
+      setPhase(p);
+      setTimeLeft(splitDuration(target == null ? 0 : target - Date.now()));
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [activeExam]);
 
@@ -75,7 +69,7 @@ export const TimeAndCountdown = ({ activeExam }) => {
         <div>
           <div className="flex items-center justify-center gap-1.5 mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
             <Clock className="w-4 h-4 text-sky-300" />
-            <span>Thời gian còn lại để làm bài thi</span>
+            <span>{COUNTDOWN_LABEL[phase] ?? COUNTDOWN_LABEL.open}</span>
           </div>
 
           {/* Grid layout for 4 boxes */}

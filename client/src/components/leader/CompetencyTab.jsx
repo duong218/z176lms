@@ -3,6 +3,7 @@ import { Building2, Lock, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchDepartmentCompetency } from '../../services/analytics.service';
 import { CompetencyView, toneOf } from '../CompetencyBars';
 import { Pagination } from '../Pagination';
+import { ReadinessSection } from './ReadinessSection';
 
 const PAGE_SIZE = 8;
 
@@ -90,6 +91,7 @@ export const CompetencyTab = () => {
 
   return (
     <div className="space-y-5">
+      <ReadinessSection />
       <div className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '0ms' }}>
         <div>
           <h2 className="text-lg font-bold text-[#0F172A]">Năng lực theo phòng ban</h2>

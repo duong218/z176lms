@@ -22,6 +22,8 @@ import {
 } from '../models/index.js';
 import { Exam } from '../models/exam.model.js';
 import { PracticeSession } from '../models/practice-session.model.js';
+import { QUESTION_USAGE } from '../models/constants.js';
+import { questionUsageFilter } from '../models/question.model.js';
 import { ApiError } from '../utils/api-error.js';
 
 // ── Ngưỡng (đổi ở đây, không rải trong code) ──
@@ -29,6 +31,7 @@ const MIN_RESPONSES = 5; // dưới ngưỡng: "chưa đủ dữ liệu", không
 const RELIABLE_RESPONSES = 30; // từ ngưỡng này mới gắn cờ (độ phân biệt cần mẫu đủ lớn)
 const MIN_TOPIC_ANSWERS = 5; // chủ đề có ít hơn số câu này: chưa đủ dữ liệu
 const MIN_DEPT_CANDIDATES = 3; // phòng ban ít hơn số người này: ẩn toàn bộ số liệu (bảo vệ cá nhân)
+const MIN_PRACTICE_ANSWERS = 5; // sẵn sàng thi: số câu ôn tập (đúng chủ đề kỳ thi) thí sinh phải thực sự làm; nộp bài trống không tính
 const WEAK_BELOW = 0.7; // tỷ lệ đúng dưới mức này = chủ đề yếu (khớp điểm đạt mặc định 70%)
 const TOO_EASY = 0.95;
 const TOO_HARD = 0.1;
@@ -46,6 +49,30 @@ const MIN_ANSWERED_FOR_SPEED = 10; // dưới số câu này không xét tốc �
 const MIN_LEAVES = 3; // rời màn hình thi từ số lần này trở lên mới nêu (1-2 lần dễ do thao tác vô ý)
 
 const sid = (v) => String(v);
+
+/**
+ * Mức độ sẵn sàng thi: mỗi phòng ban có bao nhiêu thí sinh (trong `employees`) nằm trong `practicedUserIds`.
+ * Hàm thuần (không đụng DB). Phòng ban dưới `minCandidates` người: ẩn số liệu như department-competency.
+ */
+export function buildPracticeReadiness(employees, practicedUserIds, deptNames, minCandidates) {
+  const done = new Set(practicedUserIds.map(sid));
+  const byDept = new Map();
+  for (const e of employees) {
+    const key = sid(e.departmentId);
+    const d = byDept.get(key) ?? { candidates: 0, practiced: 0 };
+    d.candidates += 1;
+    if (done.has(sid(e.userId))) d.practiced += 1;
+    byDept.set(key, d);
+  }
+  return [...byDept]
+    .map(([departmentId, { candidates, practiced }]) => {
+      const base = { departmentId, name: deptNames.get(departmentId) ?? departmentId, candidates };
+      return candidates < minCandidates
+        ? { ...base, insufficientData: true, practiced: null, rate: null }
+        : { ...base, insufficientData: false, practiced, rate: ratio(practiced, candidates) };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+}
 const round2 = (n) => Math.round(n * 100) / 100;
 const ratio = (num, den) => (den > 0 ? round2(num / den) : null);
 
@@ -452,6 +479,60 @@ export const analyticsService = {
     departments.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
     return { minCandidates: MIN_DEPT_CANDIDATES, departments };
   },
+
+  /**
+   * Người duyệt đề: mức độ sẵn sàng của kỳ thi ĐANG PHÁT HÀNH (chỉ có tối đa 1 kỳ thi published).
+   * Mẫu số = thí sinh của kỳ thi đó; tử số = người đã nộp ít nhất 1 bài luyện tập CÓ chủ đề của kỳ thi.
+   * Chỉ số gộp theo phòng ban, không lộ tên ai chưa luyện. Chưa có kỳ thi đang phát hành -> exam: null.
+   */
+  async getPracticeReadiness() {
+    const exam = await Exam.findOne({ status: EXAM_STATUS.PUBLISHED }).select('title topicId startDate endDate').lean();
+    if (!exam) return { minCandidates: MIN_DEPT_CANDIDATES, exam: null, departments: [] };
+
+    // Ngân hàng ôn tập khác ngân hàng thi; điểm chung duy nhất là CHỦ ĐỀ. Nên "ôn đúng kỳ thi" = đã làm câu ôn tập của chủ đề đó.
+    const topicQuestionIds = await Question.distinct('_id', {
+      topicId: exam.topicId,
+      isActive: true,
+      ...questionUsageFilter(QUESTION_USAGE.PRACTICE),
+    });
+    const candidates = await ExamCandidate.find({ examId: exam._id }).select('employeeId').lean();
+    const [employees, practicedRows, depts, topic] = await Promise.all([
+      Employee.find({ _id: { $in: candidates.map((c) => c.employeeId) }, isActive: true })
+        .select('departmentId userId')
+        .lean(),
+      // Đếm CÂU ĐÃ LÀM thuộc chủ đề thi (không đếm phiên): phiên chọn nhiều chủ đề có thể không rút trúng câu nào của chủ đề thi
+      topicQuestionIds.length
+        ? PracticeSession.aggregate([
+            { $match: { status: 'submitted', 'questions.questionId': { $in: topicQuestionIds } } },
+            { $unwind: '$questions' },
+            {
+              $match: {
+                'questions.questionId': { $in: topicQuestionIds },
+                $or: [{ 'questions.checked': true }, { 'questions.selectedAnswerIds.0': { $exists: true } }],
+              },
+            },
+            { $group: { _id: '$userId', answered: { $sum: 1 } } },
+            { $match: { answered: { $gte: MIN_PRACTICE_ANSWERS } } },
+          ])
+        : [],
+      Department.find({}).select('_id name').lean(),
+      Topic.findById(exam.topicId).select('name').lean(),
+    ]);
+    const deptNames = new Map(depts.map((d) => [sid(d._id), d.name]));
+    return {
+      minCandidates: MIN_DEPT_CANDIDATES,
+      exam: {
+        title: exam.title,
+        topicName: topic?.name ?? '',
+        startDate: exam.startDate,
+        endDate: exam.endDate,
+        practiceQuestionCount: topicQuestionIds.length,
+        minAnswers: MIN_PRACTICE_ANSWERS,
+      },
+      departments: buildPracticeReadiness(employees, practicedRows.map((r) => r._id), deptNames, MIN_DEPT_CANDIDATES),
+    };
+  },
+
   /**
    * Người duyệt đề: dấu hiệu bất thường theo từng kỳ thi (CÓ định danh thí sinh để Leader xem xét).
    * Chỉ là gợi ý, không kết luận. Bài bị hệ thống tự nộp bị loại (thời gian bị cắt, không phản ánh tốc độ).

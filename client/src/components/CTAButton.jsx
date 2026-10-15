@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { PlayCircle, ArrowRight, Info } from 'lucide-react';
+import { getExamPhase } from '../lib/examPhase';
 
 const formatVN = (value) => new Date(value).toLocaleString('vi-VN');
 
@@ -37,6 +38,8 @@ export const CTAButton = ({ onClick, activeExam }) => {
   // Tính lại ở MỖI lần render (bộ đếm 1 giây ở trên kích hoạt) để nút tự mờ đúng lúc hết giờ / sáng đúng lúc tới giờ bắt đầu.
   const entry = getExamEntryState(activeExam);
   const isOpen = entry.open;
+  const phase = getExamPhase(activeExam);
+  const buttonText = isOpen ? 'VÀO THI NGAY' : phase === 'upcoming' ? 'CHƯA ĐẾN GIỜ THI' : phase === 'ended' ? 'KỲ THI ĐÃ KẾT THÚC' : 'VÀO THI NGAY';
 
   useEffect(() => {
     if (!showDisabledNotice) return;
@@ -79,7 +82,7 @@ export const CTAButton = ({ onClick, activeExam }) => {
             }`}
         >
           <PlayCircle className="w-6 h-6 shrink-0" />
-          <span>VÀO THI NGAY</span>
+          <span>{buttonText}</span>
           <ArrowRight className="w-5 h-5 shrink-0" />
         </button>
 

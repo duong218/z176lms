@@ -204,7 +204,13 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
     let cancelled = false;
     fetchPracticeTopics()
       .then((data) => {
-        if (!cancelled) setTopics(Array.isArray(data) ? data : []);
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        setTopics(list);
+        // Chọn sẵn chủ đề của kỳ thi đang phát hành (chỉ lúc tải); không đè lên chủ đề đã chọn sẵn
+        // (vd từ nút "Luyện ngay") và thí sinh vẫn bỏ chọn được.
+        const examTopic = list.find((t) => t.isExamTopic);
+        if (examTopic) setSelectedTopicIds((prev) => (prev.length === 0 ? [examTopic.id] : prev));
       })
       .catch((err) => {
         if (!cancelled) setError(err?.message || 'Không thể tải danh sách chủ đề.');
@@ -598,9 +604,17 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
                       className={`text-left p-3 rounded-lg border transition-colors min-touch-target ${
                         selected
                           ? 'border-[#008BC5] bg-[#EAF6FF] text-[#0F172A]'
-                          : 'border-slate-200 hover:bg-slate-50 text-[#0F172A]'
+                          : t.isExamTopic
+                            ? 'border-[#F6AD37] bg-[#FFF8EB] hover:bg-[#FEF1D6] text-[#0F172A]'
+                            : 'border-slate-200 hover:bg-slate-50 text-[#0F172A]'
                       }`}
                     >
+                      {t.isExamTopic && (
+                        <span className="inline-flex items-center gap-1 mb-1.5 px-2 py-0.5 rounded-full bg-[#F6AD37]/20 text-[#B7791F] text-xs font-bold">
+                          <ClipboardCheck className="w-3.5 h-3.5" />
+                          Chủ đề kỳ thi đang phát hành
+                        </span>
+                      )}
                       <div className="font-semibold">{t.name}</div>
                       <div className="text-sm text-slate-500">{t.availableCount} câu có sẵn</div>
                     </button>

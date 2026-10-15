@@ -6,9 +6,9 @@
  */
 
 import mongoose from 'mongoose';
-import { Answer, Employee, Question, Topic } from '../models/index.js';
+import { Answer, Employee, Exam, Question, Topic } from '../models/index.js';
 import { PracticeSession } from '../models/practice-session.model.js';
-import { QUESTION_SCOPE, QUESTION_USAGE } from '../models/constants.js';
+import { EXAM_STATUS, QUESTION_SCOPE, QUESTION_USAGE } from '../models/constants.js';
 import { questionUsageFilter } from '../models/question.model.js';
 import { getEmployeeDepartmentIds } from '../models/employee.model.js';
 import { ApiError } from '../utils/api-error.js';
@@ -117,8 +117,19 @@ function toClientQuestion(q, orderedAnswers) {
 }
 
 // Danh sách chủ đề có ít nhất 1 câu phù hợp với thí sinh
+/** Đánh dấu chủ đề của kỳ thi đang phát hành (isExamTopic) và đưa lên đầu danh sách; còn lại giữ nguyên thứ tự. */
+export function markExamTopic(topics, examTopicId) {
+  const key = examTopicId ? String(examTopicId) : null;
+  return topics
+    .map((t) => ({ ...t, isExamTopic: key !== null && String(t.id) === key }))
+    .sort((a, b) => Number(b.isExamTopic) - Number(a.isExamTopic));
+}
+
 export async function getAvailableTopics(userId) {
-  const topics = await Topic.find({ isActive: true }).select('name').lean();
+  const [topics, activeExam] = await Promise.all([
+    Topic.find({ isActive: true }).select('name').lean(),
+    Exam.findOne({ status: EXAM_STATUS.PUBLISHED }).select('topicId').lean(),
+  ]);
   if (topics.length === 0) return [];
 
   // 1 truy vấn gộp theo chủ đề thay vì đếm lần lượt từng chủ đề
@@ -132,9 +143,12 @@ export async function getAvailableTopics(userId) {
   ]);
   const countByTopic = new Map(counts.map((c) => [String(c._id), c.count]));
 
-  return topics
-    .filter((t) => (countByTopic.get(t._id.toString()) ?? 0) > 0)
-    .map((t) => ({ id: t._id, name: t.name, availableCount: countByTopic.get(t._id.toString()) }));
+  return markExamTopic(
+    topics
+      .filter((t) => (countByTopic.get(t._id.toString()) ?? 0) > 0)
+      .map((t) => ({ id: t._id, name: t.name, availableCount: countByTopic.get(t._id.toString()) })),
+    activeExam?.topicId,
+  );
 }
 
 // Bắt đầu bài luyện: rút ngẫu nhiên câu hỏi, trả về câu hỏi KHÔNG kèm isCorrect

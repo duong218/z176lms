@@ -34,6 +34,7 @@ import {
 import { fetchMyResults } from '../../services/report.service';
 import { fetchMyExam } from '../../services/exam-attempt.service';
 import { getExamEntryState } from '../../components/CTAButton';
+import { getExamPhase, getCountdownTarget, splitDuration, COUNTDOWN_LABEL } from '../../lib/examPhase';
 import {
   fetchMyStudyDocuments,
   previewStudyDocument,
@@ -123,29 +124,23 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
   // TimeAndCountdown.jsx ở trang chủ.
   const [examTimeLeft, setExamTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
+  // Chưa tới giờ bắt đầu thì đếm ngược tới GIỜ BẮT ĐẦU (không đếm tới hạn nộp, tránh tưởng kỳ thi đã mở).
+  const [examPhase, setExamPhase] = useState(() => getExamPhase(activeExam));
+
   useEffect(() => {
     if (!activeExam?.endDate) return undefined;
 
-    const targetDate = new Date(activeExam.endDate).getTime();
-
     const tick = () => {
-      const difference = targetDate - Date.now();
-      if (difference > 0) {
-        setExamTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((difference % (1000 * 60)) / 1000),
-        });
-      } else {
-        setExamTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      }
+      const p = getExamPhase(activeExam);
+      const target = getCountdownTarget(activeExam, p);
+      setExamPhase(p);
+      setExamTimeLeft(splitDuration(target == null ? 0 : target - Date.now()));
     };
 
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [activeExam?.endDate]);
+  }, [activeExam]);
 
   // Trạng thái lượt thi THẬT từ backend (GET /api/exam-attempts/my-exam), nguồn
   // duy nhất biết về extraAttemptsGranted (lượt được Người duyệt đề cấp thêm).
@@ -474,10 +469,16 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                     <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-3">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#22C55E]/15 text-[#4ADE80] text-xs font-bold uppercase tracking-wide border border-[#22C55E]/30 w-fit">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
-                            Đang mở
-                          </span>
+                          {examPhase === 'open' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#22C55E]/15 text-[#4ADE80] text-xs font-bold uppercase tracking-wide border border-[#22C55E]/30 w-fit">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
+                              Đang mở
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-400/15 text-sky-300 text-xs font-bold uppercase tracking-wide border border-sky-400/30 w-fit">
+                              {examPhase === 'upcoming' ? 'Sắp diễn ra' : 'Đã kết thúc'}
+                            </span>
+                          )}
                         </div>
                         <h2 className="text-xl lg:text-2xl font-bold text-white mb-2 flex items-start gap-2">
                           <Calendar className="w-6 h-6 text-sky-300 shrink-0 mt-0.5" />
@@ -498,7 +499,7 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                       <div className="shrink-0">
                         <div className="text-xs font-semibold uppercase tracking-wide text-slate-300 mb-2 flex items-center gap-1.5 lg:justify-end">
                           <Clock className="w-3.5 h-3.5 text-sky-300" />
-                          Thời gian còn lại
+                          {examPhase === 'open' ? 'Thời gian còn lại' : COUNTDOWN_LABEL[examPhase]}
                         </div>
                         <div className="grid grid-cols-4 gap-2 lg:gap-2.5">
                           {[
