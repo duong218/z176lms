@@ -234,30 +234,35 @@ export async function chatWithAssistant(userId, messages, currentTopicId) {
     context ? `TÀI LIỆU ÔN TẬP ĐƯỢC PHÉP SỬ DỤNG:\n\n${context}` : 'Hiện chưa có tài liệu ôn tập nào đọc được cho thí sinh này.',
   ].join('\n\n');
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  // Google hay trả 503 (quá tải tạm thời): thử lại tối đa 3 lần, chờ 1s rồi 2s. Lỗi khác trả ngay.
   let res;
-  try {
-    res = await fetch(`${s.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.apiKey}` },
-      body: JSON.stringify({
-        model: s.model,
-        temperature: 0.3,
-        max_tokens: 1024,
-        messages: [{ role: 'system', content: system }, ...history],
-      }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    const timedOut = err?.name === 'AbortError';
-    throw new ApiError(
-      502,
-      timedOut ? 'Trợ lý AI phản hồi quá lâu, vui lòng thử lại.' : 'Không kết nối được tới dịch vụ AI.',
-      'AI_UPSTREAM_UNREACHABLE',
-    );
-  } finally {
-    clearTimeout(timer);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+    try {
+      res = await fetch(`${s.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.apiKey}` },
+        body: JSON.stringify({
+          model: s.model,
+          temperature: 0.3,
+          max_tokens: 1024,
+          messages: [{ role: 'system', content: system }, ...history],
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      const timedOut = err?.name === 'AbortError';
+      throw new ApiError(
+        502,
+        timedOut ? 'Trợ lý AI phản hồi quá lâu, vui lòng thử lại.' : 'Không kết nối được tới dịch vụ AI.',
+        'AI_UPSTREAM_UNREACHABLE',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.status !== 503 || attempt === 3) break;
+    await new Promise((r) => setTimeout(r, attempt * 1000));
   }
 
   if (!res.ok) {

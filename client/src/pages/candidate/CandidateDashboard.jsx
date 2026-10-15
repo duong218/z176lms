@@ -1008,6 +1008,9 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                       )}
                     </div>
 
+                    {/* Trợ lý AI hỏi đáp theo tài liệu của phòng ban (tự ẩn nếu admin chưa bật) */}
+                    <AiAssistantChat currentTopicId={activeExam?.topicId?._id || activeExam?.topicId} />
+
                     <div
                       className="animate-fade-in-up bg-white rounded-xl shadow-z176 border border-slate-200 overflow-hidden"
                       style={{ '--stagger-delay': '100ms' }}
@@ -1042,9 +1045,6 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                     </div>
                   </>
                 )}
-
-                {/* Trợ lý AI hỏi đáp theo tài liệu của phòng ban (tự ẩn nếu admin chưa bật) */}
-                <AiAssistantChat currentTopicId={activeExam?.topicId?._id || activeExam?.topicId} />
               </div>
             )}
           </div>

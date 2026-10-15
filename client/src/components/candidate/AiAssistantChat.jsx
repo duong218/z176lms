@@ -9,6 +9,10 @@ const SUGGESTIONS = [
   'Tôi nên lưu ý gì khi làm bài thi trực tuyến?',
 ];
 
+// Hiển thị **đậm** của AI thành chữ đậm thật (không cần thư viện markdown).
+const renderBold = (text) =>
+  text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
+
 /**
  * Khung hỏi đáp với Trợ lý AI (thí sinh). Tự ẩn nếu admin chưa bật.
  * Server tự lọc tài liệu theo phòng ban của người đăng nhập — client không gửi phòng ban/tài liệu.
@@ -80,22 +84,25 @@ export const AiAssistantChat = ({ currentTopicId }) => {
       </div>
 
       <div className="p-4 sm:p-6 space-y-4">
-        {/* Chiều cao cố định + chừa sẵn chỗ thanh cuộn: khung không co giãn khi gợi ý biến mất / tin nhắn xuất hiện nên trang không bị giật */}
+        {/* Chiều cao cố định + chừa sẵn chỗ thanh cuộn: khung không co giãn nên trang không bị giật */}
         <div
           ref={listRef}
-          className="h-80 sm:h-96 overflow-y-auto overscroll-contain space-y-3 pr-1 [scrollbar-gutter:stable]"
+          className="h-80 lg:h-[28rem] overflow-y-auto overscroll-contain space-y-4 p-4 rounded-xl bg-slate-50 border border-slate-200 [scrollbar-gutter:stable]"
           aria-live="polite"
         >
           {messages.length === 0 && (
-            <div className="space-y-2">
+            <div className="h-full flex flex-col items-center justify-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-[#EAF6FF] flex items-center justify-center">
+                <Bot className="w-6 h-6 text-[#008BC5]" />
+              </div>
               <p className="text-sm text-slate-500">Bạn có thể hỏi thử:</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 w-full max-w-2xl">
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}
                     disabled={sending}
-                    className="px-3 py-2 text-sm text-left rounded-lg border border-slate-200 hover:bg-slate-50 text-[#0F172A] min-touch-target"
+                    className="px-3 py-2 text-sm text-left rounded-lg border border-slate-200 bg-white hover:border-[#008BC5]/50 hover:bg-[#EAF6FF] text-[#0F172A] transition-colors min-touch-target"
                   >
                     {s}
                   </button>
@@ -105,15 +112,20 @@ export const AiAssistantChat = ({ currentTopicId }) => {
           )}
 
           {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {m.role === 'assistant' && (
+                <div className="w-8 h-8 rounded-full bg-[#EAF6FF] flex items-center justify-center shrink-0">
+                  <Bot className="w-4 h-4 text-[#008BC5]" />
+                </div>
+              )}
               <div
-                className={`max-w-[85%] px-3 py-2 rounded-xl text-base whitespace-pre-wrap break-words ${
+                className={`max-w-[85%] lg:max-w-[70%] px-4 py-2.5 rounded-2xl text-base leading-relaxed whitespace-pre-wrap break-words ${
                   m.role === 'user'
-                    ? 'bg-[#008BC5] text-white'
-                    : 'bg-slate-100 text-[#0F172A]'
+                    ? 'bg-[#008BC5] text-white rounded-br-sm'
+                    : 'bg-white border border-slate-200 text-[#0F172A] rounded-bl-sm'
                 }`}
               >
-                {m.content}
+                {m.role === 'user' ? m.content : renderBold(m.content)}
               </div>
             </div>
           ))}
@@ -145,16 +157,16 @@ export const AiAssistantChat = ({ currentTopicId }) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            rows={2}
+            rows={1}
             maxLength={2000}
             placeholder="Nhập câu hỏi của bạn... (Enter để gửi, Shift+Enter xuống dòng)"
-            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40"
+            className="flex-1 px-4 py-3 border border-slate-300 rounded-xl text-base resize-none focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40"
           />
           <button
             onClick={() => send(input)}
             disabled={sending || !input.trim()}
             aria-label="Gửi câu hỏi"
-            className="px-4 py-3 bg-[#008BC5] disabled:bg-slate-300 text-white rounded-lg min-touch-target"
+            className="px-4 py-3 bg-[#008BC5] hover:bg-[#0078AA] disabled:bg-slate-300 text-white rounded-xl min-touch-target transition-colors"
           >
             <Send className="w-5 h-5" />
           </button>
