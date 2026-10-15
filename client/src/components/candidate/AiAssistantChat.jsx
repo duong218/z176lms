@@ -159,7 +159,7 @@ const DiagramPanel = ({ code, onClose }) => {
  * Khung hỏi đáp với Trợ lý AI (thí sinh).
  * Server tự lọc tài liệu theo phòng ban của người đăng nhập — client không gửi phòng ban/tài liệu.
  */
-export const AiAssistantChat = ({ currentTopicId }) => {
+export const AiAssistantChat = ({ currentTopicId, active = true }) => {
   const [messages, setMessages] = useState([]); // { role: 'user' | 'assistant', content }
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -174,7 +174,10 @@ export const AiAssistantChat = ({ currentTopicId }) => {
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, sending]);
+  }, [messages, sending, active]); // active: ẩn bằng display:none làm mất vị trí cuộn, hiện lại thì cuộn xuống cuối
+  useEffect(() => {
+    if (!active) recRef.current?.abort(); // đổi sang mục khác thì tắt micro
+  }, [active]);
 
   // Gọi AI với danh sách tin nhắn đã có (dùng chung cho gửi mới và "Hỏi lại" để không trùng tin của người dùng)
   const ask = async (next) => {

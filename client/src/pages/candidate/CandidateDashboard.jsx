@@ -964,8 +964,14 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
             )}
 
             {/* ── Trợ lý AI ── */}
-            {activeSection === 'ai' && aiEnabled && (
-              <AiAssistantChat currentTopicId={activeExam?.topicId?._id || activeExam?.topicId} />
+            {/* Luôn mount (chỉ ẩn) để đổi mục rồi quay lại không mất hội thoại; chỉ mất khi tải lại trang/đóng tab */}
+            {aiEnabled && (
+              <div hidden={activeSection !== 'ai'}>
+                <AiAssistantChat
+                  currentTopicId={activeExam?.topicId?._id || activeExam?.topicId}
+                  active={activeSection === 'ai'}
+                />
+              </div>
             )}
 
             {/* ── Tài liệu ôn tập ── */}
