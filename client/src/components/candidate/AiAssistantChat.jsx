@@ -105,12 +105,12 @@ const MERMAID_CONFIG = {
   },
   // Chart hẹp lại để khi co vào khung chat chữ không bị thu nhỏ; hiện số trên cột
   xyChart: {
-    width: 560,
-    height: 420,
+    width: 420,
+    height: 340,
     titleFontSize: 22,
     showDataLabel: true,
-    xAxis: { labelFontSize: 16, titleFontSize: 17 },
-    yAxis: { labelFontSize: 16, titleFontSize: 17 },
+    xAxis: { labelFontSize: 17, titleFontSize: 18 },
+    yAxis: { labelFontSize: 17, titleFontSize: 18 },
   },
 };
 
@@ -118,13 +118,11 @@ const MERMAID_CONFIG = {
 // securityLevel 'strict' vì nội dung do AI sinh ra.
 const DiagramPanel = ({ code, onClose }) => {
   const boxRef = useRef(null);
-  const panelRef = useRef(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
-    panelRef.current?.scrollIntoView({ block: 'nearest' }); // trên mobile panel nằm trên khung chat
     import('mermaid')
       .then(async ({ default: mermaid }) => {
         // Sơ đồ tư duy rộng nên bị thu nhỏ khi vào khung chat -> dùng chữ to hơn để vẫn đọc rõ
@@ -138,6 +136,18 @@ const DiagramPanel = ({ code, onClose }) => {
       cancelled = true;
     };
   }, [code]);
+
+  // Mobile: sơ đồ mở toàn màn hình nên khoá cuộn trang phía sau; Esc để đóng
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    if (window.matchMedia('(max-width: 1023px)').matches) document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tải sơ đồ về máy dạng PNG (nền trắng, nét 2x). Trình duyệt không cho vẽ canvas (vd Safari) thì tải SVG.
   const download = () => {
@@ -171,38 +181,41 @@ const DiagramPanel = ({ code, onClose }) => {
 
   return (
     <div
-      ref={panelRef}
-      className="order-first lg:order-last mb-3 lg:mb-0 h-[50dvh] lg:h-[28rem] flex flex-col rounded-xl border border-slate-200 bg-white overflow-hidden"
+      role="dialog"
+      aria-label="Sơ đồ / biểu đồ"
+      className="fixed inset-0 z-50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] lg:static lg:z-auto lg:p-0 lg:order-last lg:h-[28rem] flex flex-col bg-white lg:rounded-xl lg:border lg:border-slate-200 overflow-hidden"
     >
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50">
-        <span className="font-semibold text-[#0F172A] mr-auto">Sơ đồ / biểu đồ</span>
+        <span className="font-bold text-lg lg:text-base text-[#0F172A] mr-auto">Sơ đồ / biểu đồ</span>
         {!failed && (
           <button
             onClick={download}
             aria-label="Tải sơ đồ xuống"
             title="Tải sơ đồ xuống"
-            className="p-2 rounded-lg text-slate-600 hover:bg-slate-200 min-touch-target flex items-center justify-center"
+            className="px-3 rounded-lg text-[#0F172A] font-semibold hover:bg-slate-200 min-touch-target flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-[#008BC5]"
           >
             <Download className="w-5 h-5" />
+            <span className="hidden sm:inline">Tải về</span>
           </button>
         )}
         <button
           onClick={onClose}
           aria-label="Đóng sơ đồ"
-          className="p-2 rounded-lg text-slate-600 hover:bg-slate-200 min-touch-target flex items-center justify-center"
+          className="px-3 rounded-lg text-[#0F172A] font-semibold hover:bg-slate-200 min-touch-target flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-[#008BC5]"
         >
           <X className="w-5 h-5" />
+          <span>Đóng</span>
         </button>
       </div>
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-auto p-3 flex flex-col justify-center">
         {failed ? (
           <div className="space-y-2 text-slate-600">
             <p>Không vẽ được sơ đồ. Bạn bấm "Hỏi lại" hoặc nhờ trợ lý viết lại sơ đồ nhé.</p>
             <pre className="p-3 bg-slate-100 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre">{code}</pre>
           </div>
         ) : (
-          // Mobile: giữ sơ đồ đủ rộng để đọc, vuốt ngang để xem; desktop: vừa khung
-          <div ref={boxRef} className="[&_svg]:h-auto [&_svg]:min-w-[640px] lg:[&_svg]:min-w-0 [&_.line-plot-0_path]:[stroke-width:4px] [&_.line-plot-1_path]:[stroke-width:4px] [&_.line-plot-2_path]:[stroke-width:4px]" />
+          // Vừa khít chiều ngang màn hình (không phải vuốt ngang); cần xem kỹ thì tải về hoặc chụm 2 ngón
+          <div ref={boxRef} className="w-full [&_svg]:h-auto [&_svg]:max-w-full [&_.line-plot-0_path]:[stroke-width:4px] [&_.line-plot-1_path]:[stroke-width:4px] [&_.line-plot-2_path]:[stroke-width:4px]" />
         )}
       </div>
     </div>
