@@ -8,6 +8,7 @@ import path from 'path';
 import cron from 'node-cron';
 import { env } from '../config/env.js';
 import { writeAudit } from './audit.service.js';
+import { StudyDocument } from '../models/study-document.model.js';
 
 const CRON_EXPRESSION = '0 * * * *'; // Chạy mỗi giờ, phút 0
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
@@ -28,6 +29,10 @@ async function runUploadCleanup() {
     return;
   }
 
+  // Tài liệu ôn tập còn hiệu lực cũng nằm trong thư mục này: tuyệt đối không xoá
+  const keep = new Set(
+    (await StudyDocument.find({ isActive: true }, 'filePath').lean()).map((d) => path.resolve(d.filePath)),
+  );
   const now = Date.now();
   const deleted = [];
   const failed = [];
@@ -36,7 +41,7 @@ async function runUploadCleanup() {
     const filePath = path.join(dir, name);
     try {
       const stat = fs.statSync(filePath);
-      if (!stat.isFile()) continue; // bỏ qua thư mục con nếu có
+      if (!stat.isFile() || keep.has(path.resolve(filePath))) continue; // bỏ qua thư mục con và tài liệu ôn tập
       if (now - stat.mtimeMs < MAX_AGE_MS) continue; // còn mới, chưa tới lượt dọn
 
       fs.unlinkSync(filePath);
@@ -74,4 +79,4 @@ export function initUploadCleanupScheduler() {
   });
 }
 
-export { runUploadCleanup };
+export { runUploadCleanup };

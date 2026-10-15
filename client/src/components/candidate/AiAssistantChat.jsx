@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Loader2, AlertCircle, RotateCcw, X, Mic } from 'lucide-react';
+import { Bot, Send, Loader2, AlertCircle, RotateCcw, X, Mic, Download } from 'lucide-react';
 import { askAiAssistant } from '../../services/ai-assistant.service';
 
 const SUGGESTIONS = [
@@ -85,13 +85,53 @@ const DiagramPanel = ({ code, onClose }) => {
     };
   }, [code]);
 
+  // Tải sơ đồ về máy dạng PNG (nền trắng, nét 2x). Trình duyệt không cho vẽ canvas (vd Safari) thì tải SVG.
+  const download = () => {
+    const svg = boxRef.current?.querySelector('svg');
+    if (!svg) return;
+    const [, , w, h] = svg.getAttribute('viewBox').split(/[\s,]+/).map(Number);
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' }));
+    const save = (href, ext) => Object.assign(document.createElement('a'), { href, download: `so-do-tu-duy.${ext}` }).click();
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = w * 2;
+      c.height = h * 2;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.scale(2, 2);
+      ctx.drawImage(img, 0, 0, w, h);
+      try {
+        save(c.toDataURL('image/png'), 'png');
+      } catch {
+        save(url, 'svg');
+      }
+    };
+    img.onerror = () => save(url, 'svg');
+    img.src = url;
+  };
+
   return (
     <div
       ref={panelRef}
       className="order-first lg:order-last mb-3 lg:mb-0 h-[50dvh] lg:h-[28rem] flex flex-col rounded-xl border border-slate-200 bg-white overflow-hidden"
     >
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50">
-        <span className="font-semibold text-[#0F172A]">Sơ đồ tư duy</span>
+        <span className="font-semibold text-[#0F172A] mr-auto">Sơ đồ tư duy</span>
+        {!failed && (
+          <button
+            onClick={download}
+            aria-label="Tải sơ đồ xuống"
+            title="Tải sơ đồ xuống"
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-200 min-touch-target flex items-center justify-center"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+        )}
         <button
           onClick={onClose}
           aria-label="Đóng sơ đồ"
