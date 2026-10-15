@@ -340,6 +340,17 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, phase, session]);
 
+  // Chế độ "Kiểm tra ngay": kiểm tra xong câu cuối thì tự nộp luôn (chờ ~2.5s để kịp xem đúng/sai câu cuối).
+  // Chạy trong effect để handleSubmit thấy đủ `answers` mới nhất; submittedRef chặn nộp 2 lần.
+  useEffect(() => {
+    if (phase !== 'quiz' || session?.mode !== 'instant') return undefined;
+    const total = session.questions.length;
+    if (total === 0 || Object.keys(checked).length < total) return undefined;
+    const t = setTimeout(() => handleSubmit(), 2500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checked, phase, session]);
+
   // Vừa được server chấm -> cuộn tới khung phản hồi (câu dài trên điện thoại sẽ nằm ngoài màn hình)
   useEffect(() => {
     if (!justCheckedRef.current) return undefined;
@@ -752,15 +763,28 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
             Bài luyện tập của bạn đã hết giờ khi bạn rời đi nên được nộp tự động với các đáp án đã chọn.
           </p>
         )}
-        <button
-          onClick={() => {
-            setAutoSubmitNotice(false);
-            setPhase('config');
-          }}
-          className="px-6 py-3 bg-[#008BC5] text-white font-bold rounded-lg min-touch-target"
-        >
-          Luyện lại
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          {session?.mode === 'instant' && Object.keys(checked).length > 0 && (
+            <button
+              onClick={() => {
+                setIndex(0);
+                setPhase('review');
+              }}
+              className="px-6 py-3 border border-[#008BC5] text-[#008BC5] font-bold rounded-lg min-touch-target"
+            >
+              Xem lại bài làm
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setAutoSubmitNotice(false);
+              setPhase('config');
+            }}
+            className="px-6 py-3 bg-[#008BC5] text-white font-bold rounded-lg min-touch-target"
+          >
+            Luyện lại
+          </button>
+        </div>
       </div>
     );
   }
@@ -774,7 +798,8 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
   const currentCheck = current ? checked[current.id] : null;
   const currentSelected = current ? answers[current.id] || [] : [];
 
-  const hasTimer = session?.timeLimitSec > 0;
+  const reviewing = phase === 'review'; // xem lại bài sau khi nộp: chỉ đọc
+  const hasTimer = !reviewing && session?.timeLimitSec > 0;
   const timeLow = hasTimer && remaining <= 60;
 
   return (
@@ -878,7 +903,7 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
                     <button
                       key={opt.id}
                       onClick={() => toggleAnswer(current, opt.id)}
-                      disabled={Boolean(currentCheck) || checkingId === current.id}
+                      disabled={reviewing || Boolean(currentCheck) || checkingId === current.id}
                       className={`w-full text-left p-3 rounded-lg border transition-colors min-touch-target touch-manipulation flex items-start justify-between gap-2 ${cls}`}
                     >
                       <span className="break-words min-w-0">{opt.content}</span>
@@ -921,7 +946,7 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
                 </div>
               )}
 
-              {isInstant && !currentCheck && current.answerType === 'multiple' && (
+              {isInstant && !reviewing && !currentCheck && current.answerType === 'multiple' && (
                 <button
                   onClick={() => checkQuestion(current, currentSelected)}
                   disabled={currentSelected.length === 0 || checkingId === current.id}
@@ -977,19 +1002,21 @@ export const PracticeSection = ({ initialTopicIds = [] }) => {
 
             <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span className="text-sm text-slate-500">
-                {isInstant
-                  ? `Đã kiểm tra ${checkedCount}/${questions.length} câu`
-                  : unansweredCount > 0
-                    ? `Còn ${unansweredCount} câu chưa trả lời`
-                    : 'Đã trả lời tất cả câu hỏi'}
+                {reviewing
+                  ? 'Đang xem lại bài đã làm'
+                  : isInstant
+                    ? `Đã kiểm tra ${checkedCount}/${questions.length} câu`
+                    : unansweredCount > 0
+                      ? `Còn ${unansweredCount} câu chưa trả lời`
+                      : 'Đã trả lời tất cả câu hỏi'}
               </span>
               <button
-                onClick={requestSubmit}
+                onClick={reviewing ? () => setPhase('result') : requestSubmit}
                 disabled={submitting}
                 className="w-full sm:w-auto px-6 py-3 bg-[#008BC5] disabled:bg-slate-300 text-white font-bold rounded-lg flex items-center justify-center gap-2 min-touch-target touch-manipulation"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isInstant ? 'Kết thúc & xem kết quả' : 'Nộp bài'}
+                {reviewing ? 'Quay lại kết quả' : isInstant ? 'Kết thúc & xem kết quả' : 'Nộp bài'}
               </button>
             </div>
           </>
