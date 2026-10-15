@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Bot, Send, Loader2, AlertCircle, RotateCcw, X } from 'lucide-react';
 import { askAiAssistant } from '../../services/ai-assistant.service';
 
 const SUGGESTIONS = [
@@ -13,6 +13,101 @@ const SUGGESTIONS = [
 const renderBold = (text) =>
   text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
 
+// AI hay ghi nhầm nhãn khối (```json thay vì ```mindmap) nên nhận cả hai: khối json bắt đầu bằng {"name" cũng là sơ đồ.
+const isMindmap = (lang, code) => lang === 'mindmap' || (['json', ''].includes(lang) && /^\s*\{\s*"name"/.test(code));
+const findMindmap = (text) => {
+  for (const m of text.matchAll(/```(\w*)\n?([\s\S]*?)```/g)) if (isMindmap(m[1], m[2])) return m[2];
+  return null;
+};
+
+// AI trả cây JSON {name, children:[...]}; client tự dựng cú pháp Mermaid nên AI không thể viết sai thụt lề/ký tự đặc biệt.
+const clean = (t) => String(t ?? '').replace(/[()[\]{}"`:;#<>]/g, ' ').replace(/\s+/g, ' ').trim() || '...';
+const toMermaid = (json) => {
+  const tree = JSON.parse(json);
+  const lines = (n, d) => [`${'  '.repeat(d)}${clean(n?.name)}`, ...(n?.children ?? []).flatMap((c) => lines(c, d + 1))];
+  return ['mindmap', `  root((${clean(tree.name)}))`, ...(tree.children ?? []).flatMap((c) => lines(c, 2))].join('\n');
+};
+
+// Tách khối ``` ``` : khối mindmap -> nút mở sơ đồ; khối khác -> chữ đơn cách (giữ nguyên cây ├──); còn lại -> chữ đậm.
+const renderContent = (text, onShow) => {
+  const parts = text.split(/```(\w*)\n?([\s\S]*?)```/g); // [chữ, lang, code, chữ, lang, code, ...]
+  const out = [];
+  for (let i = 0; i < parts.length; i += 3) {
+    out.push(<span key={i}>{renderBold(parts[i])}</span>);
+    if (i + 2 >= parts.length) break;
+    const [lang, code] = [parts[i + 1], parts[i + 2]];
+    out.push(
+      isMindmap(lang, code) ? (
+        <button
+          key={i + 1}
+          onClick={() => onShow(code)}
+          className="block my-2 px-4 py-2 font-semibold text-[#008BC5] border border-[#008BC5]/40 rounded-lg hover:bg-[#EAF6FF] min-touch-target"
+        >
+          Xem sơ đồ
+        </button>
+      ) : (
+        <pre key={i + 1} className="my-2 p-3 bg-slate-100 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre">
+          {code}
+        </pre>
+      ),
+    );
+  }
+  return out;
+};
+
+// Vẽ sơ đồ Mermaid thành SVG. Thư viện nặng nên chỉ tải khi có sơ đồ đầu tiên.
+// securityLevel 'strict' vì nội dung do AI sinh ra.
+const DiagramPanel = ({ code, onClose }) => {
+  const boxRef = useRef(null);
+  const panelRef = useRef(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    panelRef.current?.scrollIntoView({ block: 'nearest' }); // trên mobile panel nằm trên khung chat
+    import('mermaid')
+      .then(async ({ default: mermaid }) => {
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true });
+        const { svg } = await mermaid.render(`mm-${Date.now()}`, toMermaid(code));
+        if (!cancelled && boxRef.current) boxRef.current.innerHTML = svg;
+      })
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  return (
+    <div
+      ref={panelRef}
+      className="order-first lg:order-last mb-3 lg:mb-0 h-[50dvh] lg:h-[28rem] flex flex-col rounded-xl border border-slate-200 bg-white overflow-hidden"
+    >
+      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50">
+        <span className="font-semibold text-[#0F172A]">Sơ đồ tư duy</span>
+        <button
+          onClick={onClose}
+          aria-label="Đóng sơ đồ"
+          className="p-2 rounded-lg text-slate-600 hover:bg-slate-200 min-touch-target flex items-center justify-center"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-auto p-3">
+        {failed ? (
+          <div className="space-y-2 text-slate-600">
+            <p>Không vẽ được sơ đồ. Bạn bấm "Hỏi lại" hoặc nhờ trợ lý viết lại sơ đồ nhé.</p>
+            <pre className="p-3 bg-slate-100 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre">{code}</pre>
+          </div>
+        ) : (
+          // Mobile: giữ sơ đồ đủ rộng để đọc, vuốt ngang để xem; desktop: vừa khung
+          <div ref={boxRef} className="[&_svg]:h-auto [&_svg]:min-w-[640px] lg:[&_svg]:min-w-0" />
+        )}
+      </div>
+    </div>
+  );
+};
+
 /**
  * Khung hỏi đáp với Trợ lý AI (thí sinh).
  * Server tự lọc tài liệu theo phòng ban của người đăng nhập — client không gửi phòng ban/tài liệu.
@@ -22,6 +117,7 @@ export const AiAssistantChat = ({ currentTopicId }) => {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [diagram, setDiagram] = useState(null); // JSON sơ đồ đang xem ở panel
   const [docInfo, setDocInfo] = useState(null); // { used, skipped } của câu trả lời gần nhất
   const listRef = useRef(null);
 
@@ -38,6 +134,8 @@ export const AiAssistantChat = ({ currentTopicId }) => {
     try {
       const data = await askAiAssistant(next, currentTopicId);
       setMessages([...next, { role: 'assistant', content: data.reply }]);
+      const tree = findMindmap(data.reply);
+      if (tree) setDiagram(tree); // có sơ đồ -> tự mở panel xem trước
       setDocInfo({ used: data.usedDocuments?.length ?? 0, skipped: data.skippedCount ?? 0 });
     } catch (err) {
       setError(err?.message || 'Không thể kết nối Trợ lý AI.');
@@ -75,7 +173,9 @@ export const AiAssistantChat = ({ currentTopicId }) => {
         </p>
       </div>
 
-      <div className="p-3 sm:p-6 space-y-3 sm:space-y-4">
+      <div className={`p-3 sm:p-6 ${diagram ? 'lg:grid lg:grid-cols-2 lg:gap-4' : ''}`}>
+        {diagram && <DiagramPanel code={diagram} onClose={() => setDiagram(null)} />}
+        <div className="space-y-3 sm:space-y-4 min-w-0">
         {/* Chiều cao cố định + chừa sẵn chỗ thanh cuộn: khung không co giãn nên trang không bị giật */}
         <div
           ref={listRef}
@@ -117,7 +217,7 @@ export const AiAssistantChat = ({ currentTopicId }) => {
                     : 'bg-white border border-slate-200 text-[#0F172A] rounded-bl-sm'
                 }`}
               >
-                {m.role === 'user' ? m.content : renderBold(m.content)}
+                {m.role === 'user' ? m.content : renderContent(m.content, setDiagram)}
               </div>
             </div>
           ))}
@@ -172,6 +272,7 @@ export const AiAssistantChat = ({ currentTopicId }) => {
           </button>
         </div>
         <p className="hidden lg:block text-xs text-slate-500">Enter để gửi, Shift+Enter xuống dòng.</p>
+        </div>
       </div>
     </div>
   );
