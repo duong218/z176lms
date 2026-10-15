@@ -19,6 +19,7 @@ import studyDocumentRoutes from './study-document.routes.js';
 import backupRoutes from './backup.routes.js';
 import practiceRoutes from './practice.routes.js';
 import analyticsRoutes from './analytics.routes.js';
+import aiAssistantRoutes from './ai-assistant.routes.js';
 
 const router = Router();
 
@@ -45,5 +46,6 @@ router.use('/backups', backupRoutes);                 // Quản lý sao lưu/kh�
 
 router.use('/practice', practiceRoutes);
 router.use('/analytics', analyticsRoutes);           // Phân tích chất lượng câu hỏi & bản đồ năng lực
+router.use('/ai-assistant', aiAssistantRoutes);       // Trợ lý AI hỏi đáp theo tài liệu ôn tập (Admin cấu hình, Thí sinh dùng)
 
 export default router;

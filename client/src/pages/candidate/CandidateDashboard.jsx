@@ -45,6 +45,7 @@ import {
   PracticeProgressCard,
 } from '../../components/candidate/PracticeSection';
 import { CompetencyCard } from '../../components/candidate/CompetencyCard';
+import { AiAssistantChat } from '../../components/candidate/AiAssistantChat';
 
 const formatDateTime = (value) => {
   if (!value) return '—';
@@ -1041,6 +1042,9 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                     </div>
                   </>
                 )}
+
+                {/* Trợ lý AI hỏi đáp theo tài liệu của phòng ban (tự ẩn nếu admin chưa bật) */}
+                <AiAssistantChat currentTopicId={activeExam?.topicId?._id || activeExam?.topicId} />
               </div>
             )}
           </div>

@@ -4,7 +4,8 @@ import { OverviewTab } from '../../components/admin/OverviewTab';
 import { AccountTab } from '../../components/admin/AccountTab';
 import { AuditLogTab } from '../../components/admin/AuditLogTab';
 import { BackupTab } from '../../components/admin/BackupTab';
-import { LayoutDashboard, Users, Activity, Database } from 'lucide-react';
+import { AiSettingsTab } from '../../components/admin/AiSettingsTab';
+import { LayoutDashboard, Users, Activity, Database, Bot } from 'lucide-react';
 
 // Xuất ra ngoài để App.jsx dùng lại đúng 1 nguồn danh sách tab này khi
 // truyền xuống Header.jsx (hiển thị trong menu 3 gạch ở mobile) — tránh
@@ -14,6 +15,7 @@ export const ADMIN_DASHBOARD_TABS = [
   { id: 'accounts', label: 'Tài khoản', icon: <Users className="w-5 h-5" /> },
   { id: 'audit', label: 'Nhật ký (Log)', icon: <Activity className="w-5 h-5" /> },
   { id: 'backup', label: 'Sao lưu & Phục hồi', icon: <Database className="w-5 h-5" /> },
+  { id: 'ai', label: 'Trợ lý AI', icon: <Bot className="w-5 h-5" /> },
 ];
 
 // activeTab/onTabChange là props từ App.jsx (thay vì state nội bộ) —
@@ -47,6 +49,7 @@ export const AdminDashboard = ({ currentUser, activeTab, onTabChange }) => {
         {activeTab === 'accounts' && <AccountTab currentUser={currentUser} />}
         {activeTab === 'audit' && <AuditLogTab />}
         {activeTab === 'backup' && <BackupTab />}
+        {activeTab === 'ai' && <AiSettingsTab />}
       </DashboardShell>
     </div>
   );

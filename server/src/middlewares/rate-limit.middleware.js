@@ -41,3 +41,19 @@ export const examAttemptRateLimiter = env.isProduction
       },
     })
   : (req, res, next) => next(); // Bỏ qua trong môi trường dev/test
+
+// Giới hạn tần suất hỏi Trợ lý AI theo userId: tránh 1 người làm cạn hạn mức free của API ngoài
+export const aiChatRateLimiter = env.isProduction
+  ? rateLimit({
+      windowMs: 60 * 1000,
+      max: 8,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => req.auth?.userId ?? req.ip,
+      message: {
+        success: false,
+        message: 'Bạn hỏi quá nhanh, vui lòng đợi một chút rồi thử lại.',
+        code: 'AI_CHAT_RATE_LIMIT',
+      },
+    })
+  : (req, res, next) => next(); // Bỏ qua trong môi trường dev/test

@@ -31,6 +31,7 @@
     "mongoose": "^8.19.1",
     "multer": "^2.2.0",
     "node-cron": "^4.6.0",
+    "unpdf": "^1.8.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
