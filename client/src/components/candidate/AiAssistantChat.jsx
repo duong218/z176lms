@@ -21,7 +21,8 @@ const MIC_ERRORS = {
 };
 
 // AI hay ghi nhầm nhãn khối (```json thay vì ```mindmap) nên nhận cả hai: khối json bắt đầu bằng {"name" cũng là sơ đồ.
-const isMindmap = (lang, code) => lang === 'mindmap' || (['json', ''].includes(lang) && /^\s*\{\s*"name"/.test(code));
+// Khối ```mermaid: AI viết thẳng cú pháp Mermaid cho mọi biểu đồ khác (cột, đường, tròn, quy trình, gantt...).
+const isMindmap = (lang, code) => lang === 'mindmap' || lang === 'mermaid' || (['json', ''].includes(lang) && /^\s*\{\s*"name"/.test(code));
 const findMindmap = (text) => {
   for (const m of text.matchAll(/```(\w*)\n?([\s\S]*?)```/g)) if (isMindmap(m[1], m[2])) return m[2];
   return null;
@@ -30,6 +31,7 @@ const findMindmap = (text) => {
 // AI trả cây JSON {name, children:[...]}; client tự dựng cú pháp Mermaid nên AI không thể viết sai thụt lề/ký tự đặc biệt.
 const clean = (t) => String(t ?? '').replace(/[()[\]{}"`:;#<>]/g, ' ').replace(/\s+/g, ' ').trim() || '...';
 const toMermaid = (json) => {
+  if (!/^\s*\{/.test(json)) return json.trim(); // cú pháp Mermaid thô (biểu đồ khác)
   const tree = JSON.parse(json);
   const lines = (n, d) => [`${'  '.repeat(d)}${clean(n?.name)}`, ...(n?.children ?? []).flatMap((c) => lines(c, d + 1))];
   return ['mindmap', `  root((${clean(tree.name)}))`, ...(tree.children ?? []).flatMap((c) => lines(c, 2))].join('\n');
@@ -50,7 +52,7 @@ const renderContent = (text, onShow) => {
           onClick={() => onShow(code)}
           className="block my-2 px-4 py-2 font-semibold text-[#008BC5] border border-[#008BC5]/40 rounded-lg hover:bg-[#EAF6FF] min-touch-target"
         >
-          Xem sơ đồ
+          Xem sơ đồ / biểu đồ
         </button>
       ) : (
         <pre key={i + 1} className="my-2 p-3 bg-slate-100 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre">
@@ -60,6 +62,56 @@ const renderContent = (text, onShow) => {
     );
   }
   return out;
+};
+
+// Màu/cỡ chữ đậm, tương phản cao (WCAG AA với chữ trắng) cho người dùng 25-55 tuổi; mặc định của Mermaid là pastel rất nhạt.
+const COLORS = ['#1D4ED8', '#C2410C', '#15803D', '#7E22CE', '#B91C1C', '#0E7490', '#A16207', '#BE185D', '#334155', '#4D7C0F', '#0369A1', '#9A3412'];
+const MERMAID_CONFIG = {
+  startOnLoad: false,
+  securityLevel: 'strict', // nội dung do AI sinh ra
+  suppressErrorRendering: true,
+  theme: 'base',
+  themeVariables: {
+    fontSize: '16px',
+    primaryColor: '#DBEAFE',
+    primaryBorderColor: '#1D4ED8',
+    primaryTextColor: '#0F172A',
+    lineColor: '#1E293B',
+    ...Object.fromEntries(COLORS.map((c, i) => [`pie${i + 1}`, c])),
+    pieOpacity: '1',
+    pieSectionTextColor: '#FFFFFF',
+    pieSectionTextSize: '24px',
+    pieTitleTextSize: '26px',
+    pieTitleTextColor: '#0F172A',
+    pieLegendTextSize: '22px',
+    pieLegendTextColor: '#0F172A',
+    pieStrokeColor: '#FFFFFF',
+    pieStrokeWidth: '3px',
+    pieOuterStrokeColor: '#FFFFFF',
+    xyChart: {
+      backgroundColor: '#FFFFFF',
+      titleColor: '#0F172A',
+      xAxisLabelColor: '#0F172A',
+      xAxisTitleColor: '#0F172A',
+      xAxisTickColor: '#0F172A',
+      xAxisLineColor: '#0F172A',
+      yAxisLabelColor: '#0F172A',
+      yAxisTitleColor: '#0F172A',
+      yAxisTickColor: '#0F172A',
+      yAxisLineColor: '#0F172A',
+      dataLabelColor: '#FFFFFF',
+      plotColorPalette: COLORS.join(','),
+    },
+  },
+  // Chart hẹp lại để khi co vào khung chat chữ không bị thu nhỏ; hiện số trên cột
+  xyChart: {
+    width: 560,
+    height: 420,
+    titleFontSize: 22,
+    showDataLabel: true,
+    xAxis: { labelFontSize: 16, titleFontSize: 17 },
+    yAxis: { labelFontSize: 16, titleFontSize: 17 },
+  },
 };
 
 // Vẽ sơ đồ Mermaid thành SVG. Thư viện nặng nên chỉ tải khi có sơ đồ đầu tiên.
@@ -75,7 +127,9 @@ const DiagramPanel = ({ code, onClose }) => {
     panelRef.current?.scrollIntoView({ block: 'nearest' }); // trên mobile panel nằm trên khung chat
     import('mermaid')
       .then(async ({ default: mermaid }) => {
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true });
+        // Sơ đồ tư duy rộng nên bị thu nhỏ khi vào khung chat -> dùng chữ to hơn để vẫn đọc rõ
+        const fontSize = /^\s*\{/.test(code) ? '28px' : '16px';
+        mermaid.initialize({ ...MERMAID_CONFIG, themeVariables: { ...MERMAID_CONFIG.themeVariables, fontSize } });
         const { svg } = await mermaid.render(`mm-${Date.now()}`, toMermaid(code));
         if (!cancelled && boxRef.current) boxRef.current.innerHTML = svg;
       })
@@ -121,7 +175,7 @@ const DiagramPanel = ({ code, onClose }) => {
       className="order-first lg:order-last mb-3 lg:mb-0 h-[50dvh] lg:h-[28rem] flex flex-col rounded-xl border border-slate-200 bg-white overflow-hidden"
     >
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50">
-        <span className="font-semibold text-[#0F172A] mr-auto">Sơ đồ tư duy</span>
+        <span className="font-semibold text-[#0F172A] mr-auto">Sơ đồ / biểu đồ</span>
         {!failed && (
           <button
             onClick={download}
@@ -148,7 +202,7 @@ const DiagramPanel = ({ code, onClose }) => {
           </div>
         ) : (
           // Mobile: giữ sơ đồ đủ rộng để đọc, vuốt ngang để xem; desktop: vừa khung
-          <div ref={boxRef} className="[&_svg]:h-auto [&_svg]:min-w-[640px] lg:[&_svg]:min-w-0" />
+          <div ref={boxRef} className="[&_svg]:h-auto [&_svg]:min-w-[640px] lg:[&_svg]:min-w-0 [&_.line-plot-0_path]:[stroke-width:4px] [&_.line-plot-1_path]:[stroke-width:4px] [&_.line-plot-2_path]:[stroke-width:4px]" />
         )}
       </div>
     </div>

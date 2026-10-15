@@ -21,6 +21,9 @@ import {
   Info,
   Target,
   Lock,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   BarChart,
@@ -96,6 +99,10 @@ const TruncatedTick = ({ x, y, payload }) => {
 const isPdf = (doc) =>
   doc.mimeType === 'application/pdf' || doc.originalFileName?.toLowerCase().endsWith('.pdf');
 
+const HISTORY_PAGE_SIZE = 10;
+// Bỏ dấu tiếng Việt để gõ "ky thi" vẫn tìm ra "Kỳ thi"
+const norm = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
+
 const SIDEBAR_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'exam', label: 'Thi trực tuyến', icon: CheckSquare },
@@ -118,6 +125,8 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
   const [error, setError] = useState(null);
   const [employee, setEmployee] = useState(null);
   const [results, setResults] = useState([]);
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
   const [refreshTick, setRefreshTick] = useState(0);
   // MỚI — Nhịp 1 giây để nút "VÀO THI CHÍNH THỨC" tự khóa/mở đúng lúc tới giờ bắt đầu / hết giờ mà không cần F5.
   const [, setNowTick] = useState(0);
@@ -306,6 +315,10 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
 
   // "Số lần đã thi" ở khối tổng quan vẫn hiển thị TOÀN BỘ lịch sử.
   const totalAttempts = results.length;
+  const filteredResults = results.filter((r) => norm(r.examTitle).includes(norm(historyQuery.trim())));
+  const historyPages = Math.max(1, Math.ceil(filteredResults.length / HISTORY_PAGE_SIZE));
+  const page = Math.min(historyPage, historyPages);
+  const pagedResults = filteredResults.slice((page - 1) * HISTORY_PAGE_SIZE, page * HISTORY_PAGE_SIZE);
   const bestResult = results.reduce((best, r) => {
     if (!best) return r;
     return r.score > best.score ? r : best;
@@ -875,6 +888,25 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                   </div>
                 ) : (
                   <>
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <div className="relative sm:max-w-sm">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="search"
+                          value={historyQuery}
+                          onChange={(e) => {
+                            setHistoryQuery(e.target.value);
+                            setHistoryPage(1);
+                          }}
+                          placeholder="Tìm theo tên kỳ thi..."
+                          aria-label="Tìm kết quả theo kỳ thi"
+                          className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-base focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40"
+                        />
+                      </div>
+                    </div>
+                    {filteredResults.length === 0 && (
+                      <div className="p-8 text-center text-slate-500">Không có kỳ thi nào khớp với "{historyQuery}".</div>
+                    )}
                     <div
                       className="animate-fade-in-up hidden sm:block overflow-x-auto"
                       style={{ '--stagger-delay': '80ms' }}
@@ -890,7 +922,7 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {results.map((r) => (
+                          {pagedResults.map((r) => (
                             <tr key={r._id} className="hover:bg-slate-50">
                               <td className="px-4 py-3 font-medium text-[#0F172A]">{r.examTitle}</td>
                               <td className="px-4 py-3 text-slate-500">{formatDateTime(r.submittedAt)}</td>
@@ -919,7 +951,7 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                       className="animate-fade-in-up sm:hidden p-4 space-y-3"
                       style={{ '--stagger-delay': '80ms' }}
                     >
-                      {results.map((r) => (
+                      {pagedResults.map((r) => (
                         <div
                           key={r._id}
                           className="bg-white p-4 rounded-xl border border-slate-200 space-y-2.5"
@@ -958,6 +990,35 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                         </div>
                       ))}
                     </div>
+
+                    {historyPages > 1 && (
+                      <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-sm text-slate-500">
+                        <span>
+                          {(page - 1) * HISTORY_PAGE_SIZE + 1}–{Math.min(page * HISTORY_PAGE_SIZE, filteredResults.length)} / {filteredResults.length} lượt thi
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setHistoryPage(page - 1)}
+                            disabled={page === 1}
+                            aria-label="Trang trước"
+                            className="p-2 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 min-touch-target flex items-center justify-center"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="px-1">
+                            {page}/{historyPages}
+                          </span>
+                          <button
+                            onClick={() => setHistoryPage(page + 1)}
+                            disabled={page === historyPages}
+                            aria-label="Trang sau"
+                            className="p-2 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 min-touch-target flex items-center justify-center"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
