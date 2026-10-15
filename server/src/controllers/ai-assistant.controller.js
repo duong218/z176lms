@@ -25,7 +25,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Đã lưu cấu hình Trợ lý AI', code: 'AI_SETTINGS_UPDATED', data });
 });
 
-// Thí sinh: trợ lý có đang bật không
+// Thí sinh / Người duyệt đề: trợ lý có đang bật không
 export const status = asyncHandler(async (_req, res) => {
   const data = await aiService.getAiStatus();
   res.json({ success: true, message: 'OK', code: 'AI_STATUS_OK', data });
@@ -38,5 +38,11 @@ export const chat = asyncHandler(async (req, res) => {
     req.body?.messages,
     req.body?.currentTopicId, // chỉ để ưu tiên thứ tự tài liệu, không ảnh hưởng quyền truy cập
   );
+  res.json({ success: true, message: 'OK', code: 'AI_CHAT_OK', data });
+});
+
+// Người duyệt đề: hỏi đáp trên số liệu báo cáo (không nhận gì ngoài lịch sử hội thoại)
+export const leaderChat = asyncHandler(async (req, res) => {
+  const data = await aiService.chatWithLeaderAssistant(req.body?.messages);
   res.json({ success: true, message: 'OK', code: 'AI_CHAT_OK', data });
 });

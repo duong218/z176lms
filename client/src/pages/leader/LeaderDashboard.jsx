@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import { UserInfoCard } from '../../components/UserInfoCard';
 import { DashboardShell } from '../../components/DashboardShell';
-import { LayoutDashboard, Building2, FileBarChart, PieChart, CheckCircle, BookOpen, TrendingUp, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Building2, FileBarChart, PieChart, CheckCircle, BookOpen, TrendingUp, ShieldAlert, Bot } from 'lucide-react';
 import { OverviewTab } from '../../components/leader/OverviewTab';
 import { DepartmentReportTab } from '../../components/leader/DepartmentReportTab';
 import { ExamReportTab } from '../../components/leader/ExamReportTab';
@@ -8,6 +9,19 @@ import { DetailedResultsTab } from '../../components/leader/DetailedResultsTab';
 import { ExamReviewTab } from '../../components/leader/ExamReviewTab';
 import { CompetencyTab } from '../../components/leader/CompetencyTab';
 import { AnomalyTab } from '../../components/leader/AnomalyTab';
+import { AiAssistantChat } from '../../components/candidate/AiAssistantChat';
+import { fetchAiStatus, askLeaderAssistant } from '../../services/ai-assistant.service';
+
+const ASSISTANT_SUGGESTIONS = [
+  'Tỷ lệ đạt của kỳ thi gần nhất theo từng phòng ban?',
+  'Phòng ban nào có điểm trung bình thấp nhất?',
+  'Chủ đề nào cả công ty hay sai nhất?',
+  'Phòng nào ít luyện tập trước kỳ thi?',
+  'Có lượt thi nào bất thường không?',
+  'Đang có đề nào chờ duyệt hoặc chờ đăng chính thức?',
+  'Liệt kê những người không đạt gần đây để tôi cân nhắc cấp thêm lượt thi',
+  'So sánh tỷ lệ đạt các phòng ban bằng biểu đồ cột',
+];
 
 // Xuất ra ngoài để App.jsx dùng lại khi truyền xuống Header.jsx (hiển thị
 // trong menu 3 gạch ở mobile), cùng pattern đã áp dụng cho ADMIN_DASHBOARD_TABS
@@ -20,11 +34,19 @@ export const LEADER_DASHBOARD_TABS = [
   { id: 'anomaly', label: 'Dấu hiệu bất thường', icon: <ShieldAlert className="w-5 h-5" /> },
   { id: 'exam', label: 'Theo bài thi', icon: <BookOpen className="w-5 h-5" /> },
   { id: 'detailed', label: 'Kết quả chi tiết', icon: <FileBarChart className="w-5 h-5" /> },
+  { id: 'assistant', label: 'Trợ lý báo cáo', icon: <Bot className="w-5 h-5" /> },
 ];
 
 // activeTab/onTabChange là props từ App.jsx — để Header.jsx (menu 3 gạch ở
 // mobile) đọc/đổi được đúng tab đang chọn ở đây.
 export const LeaderDashboard = ({ currentUser, activeTab, onTabChange }) => {
+  const [aiEnabled, setAiEnabled] = useState(false); // admin bật/tắt Trợ lý AI
+  useEffect(() => {
+    fetchAiStatus()
+      .then((st) => setAiEnabled(Boolean(st?.enabled)))
+      .catch(() => setAiEnabled(false));
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 md:py-8 mt-16 min-h-screen">
       {/* Tiêu đề trang */}
@@ -53,6 +75,22 @@ export const LeaderDashboard = ({ currentUser, activeTab, onTabChange }) => {
         {activeTab === 'exam' && <ExamReportTab />}
         {activeTab === 'detailed' && <DetailedResultsTab />}
         {activeTab === 'review' && <ExamReviewTab />}
+        {/* Luôn mount (chỉ ẩn) để đổi mục rồi quay lại không mất hội thoại */}
+        <div hidden={activeTab !== 'assistant'}>
+          {aiEnabled ? (
+            <AiAssistantChat
+              active={activeTab === 'assistant'}
+              onAsk={askLeaderAssistant}
+              suggestions={ASSISTANT_SUGGESTIONS}
+              title="Trợ lý báo cáo"
+              subtitle="Trợ lý đọc số liệu báo cáo toàn công ty và chỉ trả lời, không tự duyệt đề hay cấp lượt thi. Dấu hiệu bất thường chỉ là gợi ý để xem xét; hãy đối chiếu với báo cáo gốc."
+            />
+          ) : (
+            <p className="p-4 bg-white rounded-xl border border-slate-200 text-slate-600">
+              Trợ lý AI chưa được bật. Vui lòng báo quản trị viên cấu hình và bật Trợ lý AI.
+            </p>
+          )}
+        </div>
       </DashboardShell>
     </div>
   );

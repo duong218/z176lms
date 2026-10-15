@@ -12,8 +12,11 @@ router.use(authenticate, requirePasswordChanged);
 router.get('/settings', requireRoleCodes('admin'), aiController.getSettings);
 router.put('/settings', requireRoleCodes('admin'), aiController.updateSettings);
 
-// Thí sinh: trạng thái + hỏi đáp
-router.get('/status', requireRoleCodes('candidate'), aiController.status);
+// Thí sinh / Người duyệt đề: trạng thái bật-tắt
+router.get('/status', requireRoleCodes('candidate', 'leader'), aiController.status);
+// Thí sinh: hỏi đáp theo tài liệu phòng ban
 router.post('/chat', requireRoleCodes('candidate'), aiChatRateLimiter, aiController.chat);
+// Người duyệt đề: hỏi đáp trên số liệu báo cáo toàn công ty
+router.post('/leader-chat', requireRoleCodes('leader'), aiChatRateLimiter, aiController.leaderChat);
 
 export default router;

@@ -17,11 +17,11 @@ export async function saveAiSettings(payload) {
   return res.data;
 }
 
-// === THÍ SINH — hỏi đáp ===
+// === THÍ SINH / NGƯỜI DUYỆT ĐỀ — hỏi đáp ===
 
 export async function fetchAiStatus() {
   const res = await apiRequest('/ai-assistant/status', { headers: getAuthHeaders() });
-  return res.data; // { enabled }
+  return res.data; // { enabled } — dùng chung cho thí sinh và Người duyệt đề
 }
 
 export async function askAiAssistant(messages, currentTopicId) {
@@ -31,4 +31,14 @@ export async function askAiAssistant(messages, currentTopicId) {
     body: JSON.stringify({ messages, currentTopicId }),
   });
   return res.data; // { reply, usedDocuments, skippedCount }
+}
+
+// Người duyệt đề: hỏi đáp trên số liệu báo cáo toàn công ty. Server tự gom số liệu, client chỉ gửi hội thoại.
+export async function askLeaderAssistant(messages) {
+  const res = await apiRequest('/ai-assistant/leader-chat', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ messages }),
+  });
+  return res.data; // { reply }
 }

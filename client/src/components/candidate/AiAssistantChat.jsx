@@ -244,10 +244,18 @@ const DiagramPanel = ({ code, onClose }) => {
 };
 
 /**
- * Khung hỏi đáp với Trợ lý AI (thí sinh).
- * Server tự lọc tài liệu theo phòng ban của người đăng nhập — client không gửi phòng ban/tài liệu.
+ * Khung hỏi đáp với Trợ lý AI. Mặc định là bản cho thí sinh (server tự lọc tài liệu theo phòng ban
+ * của người đăng nhập — client không gửi phòng ban/tài liệu). Người duyệt đề dùng lại khung này
+ * bằng cách truyền onAsk/suggestions/title/subtitle riêng.
  */
-export const AiAssistantChat = ({ currentTopicId, active = true }) => {
+export const AiAssistantChat = ({
+  currentTopicId,
+  active = true,
+  onAsk = askAiAssistant,
+  suggestions = SUGGESTIONS,
+  title = 'Hỏi đáp cùng Trợ lý AI',
+  subtitle = 'Trợ lý chỉ dựa trên tài liệu chung và tài liệu của phòng ban bạn. Câu trả lời có thể chưa chính xác, hãy đối chiếu với tài liệu gốc.',
+}) => {
   const [messages, setMessages] = useState([]); // { role: 'user' | 'assistant', content }
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -272,11 +280,12 @@ export const AiAssistantChat = ({ currentTopicId, active = true }) => {
     setError('');
     setSending(true);
     try {
-      const data = await askAiAssistant(next, currentTopicId);
+      const data = await onAsk(next, currentTopicId);
       setMessages([...next, { role: 'assistant', content: data.reply }]);
       const tree = findMindmap(data.reply);
       if (tree) setDiagram(tree); // có sơ đồ -> tự mở panel xem trước
-      setDocInfo({ used: data.usedDocuments?.length ?? 0, skipped: data.skippedCount ?? 0, skippedTitles: data.skippedTitles ?? [] });
+      // Chỉ bản thí sinh có danh sách tài liệu; bản Người duyệt đề thì không hiện dòng "Dựa trên N tài liệu"
+      if (data.usedDocuments) setDocInfo({ used: data.usedDocuments.length, skipped: data.skippedCount ?? 0, skippedTitles: data.skippedTitles ?? [] });
     } catch (err) {
       setError(err?.message || 'Không thể kết nối Trợ lý AI.');
     } finally {
@@ -327,12 +336,9 @@ export const AiAssistantChat = ({ currentTopicId, active = true }) => {
       <div className="px-4 sm:px-6 py-4 border-b border-slate-200 bg-slate-50">
         <h2 className="text-xl lg:text-lg font-bold text-[#0F172A] flex items-center gap-2">
           <Bot className="w-5 h-5 text-[#008BC5]" />
-          Hỏi đáp cùng Trợ lý AI
+          {title}
         </h2>
-        <p className="text-base lg:text-sm text-slate-600 mt-0.5">
-          Trợ lý chỉ dựa trên tài liệu chung và tài liệu của phòng ban bạn. Câu trả lời có thể chưa chính
-          xác, hãy đối chiếu với tài liệu gốc.
-        </p>
+        <p className="text-base lg:text-sm text-slate-600 mt-0.5">{subtitle}</p>
       </div>
 
       <div className={`p-3 sm:p-6 ${diagram ? 'lg:grid lg:grid-cols-2 lg:gap-4' : ''}`}>
@@ -351,7 +357,7 @@ export const AiAssistantChat = ({ currentTopicId, active = true }) => {
               </div>
               <p className="text-base lg:text-sm text-slate-600">Bạn có thể hỏi thử:</p>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 w-full max-w-2xl">
-                {SUGGESTIONS.map((s) => (
+                {suggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}
