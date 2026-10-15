@@ -30,8 +30,28 @@ const findMindmap = (text) => {
 
 // AI trả cây JSON {name, children:[...]}; client tự dựng cú pháp Mermaid nên AI không thể viết sai thụt lề/ký tự đặc biệt.
 const clean = (t) => String(t ?? '').replace(/[()[\]{}"`:;#<>]/g, ' ').replace(/\s+/g, ' ').trim() || '...';
+// Biểu đồ cột có nhiều cột/nhãn dài thì chữ trục X đè lên nhau (Mermaid không tự xuống dòng) -> chuyển sang cột ngang, nhãn nằm bên trái.
+const fixXyChart = (code) => {
+  const m = code.match(/x-axis\s*\[([^\]]*)\]/);
+  if (!m || /\bline\s*\[/.test(code) || /^\s*xychart(-beta)?\s+horizontal/m.test(code)) return code;
+  const labels = m[1].split(',').map((l) => l.trim().replace(/^"|"$/g, ''));
+  const crowded = labels.length * Math.max(...labels.map((l) => l.length)) > 32;
+  return crowded ? code.replace(/^(\s*xychart(?:-beta)?)/m, '$1 horizontal') : code;
+};
+
+// Khổ biểu đồ theo số/độ dài nhãn để chữ không đè nhau: cột ngang thì rộng vừa và trục số chữ nhỏ hơn; cột/đường đứng thì nới theo nhãn.
+const xyConfig = (text) => {
+  if (!/^\s*xychart/m.test(text)) return MERMAID_CONFIG.xyChart;
+  const labels = (text.match(/x-axis\s*\[([^\]]*)\]/)?.[1] ?? '').split(',');
+  const horizontal = /^\s*xychart(-beta)?\s+horizontal/m.test(text);
+  const width = horizontal ? 480 : Math.min(900, Math.max(420, labels.length * Math.max(...labels.map((l) => l.length)) * 9 + 80));
+  const yAxis = horizontal ? { ...MERMAID_CONFIG.xyChart.yAxis, labelFontSize: 14 } : MERMAID_CONFIG.xyChart.yAxis;
+  const height = horizontal ? Math.max(340, labels.length * 45 + 120) : MERMAID_CONFIG.xyChart.height; // nhiều cột ngang thì kéo dài xuống
+  return { ...MERMAID_CONFIG.xyChart, width, height, yAxis };
+};
+
 const toMermaid = (json) => {
-  if (!/^\s*\{/.test(json)) return json.trim(); // cú pháp Mermaid thô (biểu đồ khác)
+  if (!/^\s*\{/.test(json)) return fixXyChart(json.trim()); // cú pháp Mermaid thô (biểu đồ khác)
   const tree = JSON.parse(json);
   const lines = (n, d) => [`${'  '.repeat(d)}${clean(n?.name)}`, ...(n?.children ?? []).flatMap((c) => lines(c, d + 1))];
   return ['mindmap', `  root((${clean(tree.name)}))`, ...(tree.children ?? []).flatMap((c) => lines(c, 2))].join('\n');
@@ -127,8 +147,9 @@ const DiagramPanel = ({ code, onClose }) => {
       .then(async ({ default: mermaid }) => {
         // Sơ đồ tư duy rộng nên bị thu nhỏ khi vào khung chat -> dùng chữ to hơn để vẫn đọc rõ
         const fontSize = /^\s*\{/.test(code) ? '28px' : '16px';
-        mermaid.initialize({ ...MERMAID_CONFIG, themeVariables: { ...MERMAID_CONFIG.themeVariables, fontSize } });
-        const { svg } = await mermaid.render(`mm-${Date.now()}`, toMermaid(code));
+        const text = toMermaid(code);
+        mermaid.initialize({ ...MERMAID_CONFIG, xyChart: xyConfig(text), themeVariables: { ...MERMAID_CONFIG.themeVariables, fontSize } });
+        const { svg } = await mermaid.render(`mm-${Date.now()}`, text);
         if (!cancelled && boxRef.current) boxRef.current.innerHTML = svg;
       })
       .catch(() => !cancelled && setFailed(true));
