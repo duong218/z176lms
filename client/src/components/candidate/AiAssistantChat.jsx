@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Loader2, AlertCircle, RotateCcw, X } from 'lucide-react';
+import { Bot, Send, Loader2, AlertCircle, RotateCcw, X, Mic } from 'lucide-react';
 import { askAiAssistant } from '../../services/ai-assistant.service';
 
 const SUGGESTIONS = [
@@ -12,6 +12,13 @@ const SUGGESTIONS = [
 // Hiển thị **đậm** của AI thành chữ đậm thật (không cần thư viện markdown).
 const renderBold = (text) =>
   text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
+
+// Nhập bằng giọng nói: API có sẵn của trình duyệt (Chrome/Edge/Android). Không hỗ trợ thì ẩn nút micro.
+const SpeechRec = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+const MIC_ERRORS = {
+  'not-allowed': 'Bạn chưa cho phép dùng micro. Hãy bấm vào biểu tượng ổ khóa trên thanh địa chỉ để cho phép.',
+  'no-speech': 'Không nghe thấy giọng nói, bạn thử lại nhé.',
+};
 
 // AI hay ghi nhầm nhãn khối (```json thay vì ```mindmap) nên nhận cả hai: khối json bắt đầu bằng {"name" cũng là sơ đồ.
 const isMindmap = (lang, code) => lang === 'mindmap' || (['json', ''].includes(lang) && /^\s*\{\s*"name"/.test(code));
@@ -118,7 +125,9 @@ export const AiAssistantChat = ({ currentTopicId }) => {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [diagram, setDiagram] = useState(null); // JSON sơ đồ đang xem ở panel
-  const [docInfo, setDocInfo] = useState(null); // { used, skipped } của câu trả lời gần nhất
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const [docInfo, setDocInfo] = useState(null); // { used, skipped, skippedTitles } của câu trả lời gần nhất
   const listRef = useRef(null);
 
   // Chỉ cuộn bên trong khung chat, không kéo cả trang
@@ -136,7 +145,7 @@ export const AiAssistantChat = ({ currentTopicId }) => {
       setMessages([...next, { role: 'assistant', content: data.reply }]);
       const tree = findMindmap(data.reply);
       if (tree) setDiagram(tree); // có sơ đồ -> tự mở panel xem trước
-      setDocInfo({ used: data.usedDocuments?.length ?? 0, skipped: data.skippedCount ?? 0 });
+      setDocInfo({ used: data.usedDocuments?.length ?? 0, skipped: data.skippedCount ?? 0, skippedTitles: data.skippedTitles ?? [] });
     } catch (err) {
       setError(err?.message || 'Không thể kết nối Trợ lý AI.');
     } finally {
@@ -152,6 +161,28 @@ export const AiAssistantChat = ({ currentTopicId }) => {
     setInput('');
     ask(next);
   };
+
+  // Bấm micro -> nói 1 câu -> chữ hiện vào ô nhập (không tự gửi, để người dùng kiểm tra lại rồi bấm Gửi).
+  // Lưu ý: trình duyệt chỉ cho dùng micro trên HTTPS hoặc localhost.
+  const toggleMic = () => {
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    const rec = new SpeechRec();
+    rec.lang = 'vi-VN';
+    rec.onstart = () => {
+      setError('');
+      setListening(true);
+    };
+    rec.onresult = (e) => setInput((v) => `${v ? `${v} ` : ''}${e.results[0][0].transcript}`.slice(0, 2000));
+    rec.onerror = (e) => e.error !== 'aborted' && setError(MIC_ERRORS[e.error] || 'Không ghi âm được, bạn thử lại hoặc gõ chữ nhé.');
+    rec.onend = () => setListening(false);
+    recRef.current = rec;
+    rec.start();
+  };
+
+  useEffect(() => () => recRef.current?.abort(), []); // rời trang thì tắt micro
 
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -233,7 +264,9 @@ export const AiAssistantChat = ({ currentTopicId }) => {
         {docInfo && messages.length > 0 && (
           <p className="text-sm lg:text-xs text-slate-600">
             Dựa trên {docInfo.used} tài liệu
-            {docInfo.skipped > 0 ? ` (${docInfo.skipped} tài liệu chưa đọc được)` : ''}.
+            {docInfo.skipped > 0
+              ? ` (${docInfo.skipped} tài liệu chưa đọc được${docInfo.skippedTitles?.length ? `: ${docInfo.skippedTitles.join(', ')}` : ''})`
+              : ''}.
           </p>
         )}
 
@@ -241,6 +274,7 @@ export const AiAssistantChat = ({ currentTopicId }) => {
           <div role="alert" className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg flex items-center gap-2 text-[#0F172A] text-base lg:text-sm">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span className="flex-1">{error}</span>
+            {messages.at(-1)?.role === 'user' && (
             <button
               onClick={() => ask(messages)}
               disabled={sending}
@@ -249,6 +283,7 @@ export const AiAssistantChat = ({ currentTopicId }) => {
               <RotateCcw className="w-4 h-4" />
               <span>Hỏi lại</span>
             </button>
+            )}
           </div>
         )}
 
@@ -259,9 +294,23 @@ export const AiAssistantChat = ({ currentTopicId }) => {
             onKeyDown={onKeyDown}
             rows={1}
             maxLength={2000}
-            placeholder="Nhập câu hỏi của bạn..."
+            placeholder={listening ? 'Đang nghe... hãy nói câu hỏi của bạn' : 'Nhập câu hỏi của bạn...'}
             className="flex-1 px-4 py-3 border border-slate-300 rounded-xl text-base resize-none focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40"
           />
+          {SpeechRec && (
+            <button
+              onClick={toggleMic}
+              disabled={sending}
+              aria-label={listening ? 'Dừng ghi âm' : 'Nói câu hỏi'}
+              className={`px-3 flex items-center justify-center rounded-xl border min-touch-target transition-colors disabled:opacity-50 ${
+                listening
+                  ? 'bg-[#C53030] border-[#C53030] text-white animate-pulse'
+                  : 'bg-white border-slate-300 text-[#008BC5] hover:bg-[#EAF6FF]'
+              }`}
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+          )}
           <button
             onClick={() => send(input)}
             disabled={sending || !input.trim()}

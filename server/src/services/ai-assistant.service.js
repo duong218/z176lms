@@ -162,7 +162,7 @@ async function buildDocumentContext(userId, maxChars, currentTopicId) {
 
   const parts = [];
   const used = [];
-  let skipped = 0;
+  const skipped = []; // tên các tài liệu không đọc được (để log và báo cho người dùng)
   let total = 0;
 
   const addGroup = async (group, budget, label) => {
@@ -170,13 +170,16 @@ async function buildDocumentContext(userId, maxChars, currentTopicId) {
     for (const doc of group) {
       if (total >= maxChars) break;
       let text = null;
+      let reason = '';
       try {
         text = await readDocumentText(doc);
+        if (text === null) reason = 'định dạng chưa hỗ trợ (vd .doc) hoặc không tìm thấy file';
       } catch (err) {
-        console.error('[ai-assistant] Không đọc được tài liệu', doc._id?.toString(), err?.message);
+        reason = `lỗi khi đọc file: ${err?.message}`;
       }
       if (!text || !text.trim()) {
-        skipped += 1;
+        skipped.push(doc.title);
+        console.warn(`[ai-assistant] Bỏ qua tài liệu "${doc.title}": ${reason || 'không có chữ (PDF scan?)'}`);
         continue;
       }
       const clipped = text.trim().slice(0, Math.min(cap, maxChars - total));
@@ -283,5 +286,5 @@ export async function chatWithAssistant(userId, messages, currentTopicId) {
   if (!reply) {
     throw new ApiError(502, 'Trợ lý AI không trả về nội dung, vui lòng thử lại.', 'AI_EMPTY_REPLY');
   }
-  return { reply, usedDocuments: used, skippedCount: skipped };
+  return { reply, usedDocuments: used, skippedCount: skipped.length, skippedTitles: skipped };
 }
