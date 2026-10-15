@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   CheckSquare,
   BookOpen,
+  Bot,
   Clock,
   ShieldCheck,
   FileText,
@@ -46,6 +47,7 @@ import {
 } from '../../components/candidate/PracticeSection';
 import { CompetencyCard } from '../../components/candidate/CompetencyCard';
 import { AiAssistantChat } from '../../components/candidate/AiAssistantChat';
+import { fetchAiStatus } from '../../services/ai-assistant.service';
 
 const formatDateTime = (value) => {
   if (!value) return '—';
@@ -100,10 +102,18 @@ const SIDEBAR_ITEMS = [
   { id: 'practice', label: 'Luyện tập', icon: Target },
   { id: 'history', label: 'Lịch sử kết quả', icon: History },
   { id: 'materials', label: 'Tài liệu ôn tập', icon: BookOpen },
+  { id: 'ai', label: 'Trợ lý AI', icon: Bot },
 ];
 
 export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) => {
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [aiEnabled, setAiEnabled] = useState(false); // admin bật/tắt Trợ lý AI -> ẩn/hiện mục menu
+
+  useEffect(() => {
+    fetchAiStatus()
+      .then((st) => setAiEnabled(Boolean(st?.enabled)))
+      .catch(() => setAiEnabled(false));
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [employee, setEmployee] = useState(null);
@@ -382,7 +392,7 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
               className="bg-white rounded-xl shadow-z176 border border-slate-200 p-2 flex flex-col gap-1.5 md:gap-1 md:sticky md:top-20"
               aria-label="Menu chức năng thí sinh"
             >
-              {SIDEBAR_ITEMS.map((item) => {
+              {SIDEBAR_ITEMS.filter((item) => item.id !== 'ai' || aiEnabled).map((item) => {
                 const Icon = item.icon;
                 const isActive = activeSection === item.id;
                 return (
@@ -953,6 +963,11 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
               </div>
             )}
 
+            {/* ── Trợ lý AI ── */}
+            {activeSection === 'ai' && aiEnabled && (
+              <AiAssistantChat currentTopicId={activeExam?.topicId?._id || activeExam?.topicId} />
+            )}
+
             {/* ── Tài liệu ôn tập ── */}
             {activeSection === 'materials' && (
               <div className="space-y-6">
@@ -1008,8 +1023,6 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                       )}
                     </div>
 
-                    {/* Trợ lý AI hỏi đáp theo tài liệu của phòng ban (tự ẩn nếu admin chưa bật) */}
-                    <AiAssistantChat currentTopicId={activeExam?.topicId?._id || activeExam?.topicId} />
 
                     <div
                       className="animate-fade-in-up bg-white rounded-xl shadow-z176 border border-slate-200 overflow-hidden"
