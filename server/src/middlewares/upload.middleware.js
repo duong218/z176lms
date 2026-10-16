@@ -1,6 +1,6 @@
 /**
  * Middleware xử lý Upload tập tin sử dụng Multer.
- * Hỗ trợ upload file Excel (ngân hàng câu hỏi/danh sách nhân viên), tài liệu ôn tập (PDF/Word/Excel) và ảnh câu hỏi (Cloudinary).
+ * Hỗ trợ upload file Excel (ngân hàng câu hỏi/danh sách nhân viên), tài liệu ôn tập (PDF/.docx/.xlsx) và ảnh câu hỏi (Cloudinary).
  */
 
 import fs from 'fs';
@@ -74,29 +74,17 @@ export const uploadWord = multer({
   fileFilter: wordFilter,
 }).single('file');
 
-// --- Khối xử lý Upload Tài liệu ôn tập (PDF / Word / Excel) ---
-const STUDY_DOCUMENT_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-]);
-
+// --- Khối xử lý Upload Tài liệu ôn tập (PDF / Word .docx / Excel .xlsx) ---
+// Chỉ nhận 3 định dạng mà Trợ lý AI đọc được. Xét theo ĐUÔI file (Trợ lý AI cũng đọc theo đuôi),
+// không tin MIME: file .doc/.xls cũ bị từ chối kèm hướng dẫn lưu lại sang định dạng mới.
 function studyDocumentFilter(_req, file, cb) {
-  const nameLower = file.originalname.toLowerCase();
-  const ok =
-    STUDY_DOCUMENT_MIME_TYPES.has(file.mimetype) ||
-    nameLower.endsWith('.pdf') ||
-    nameLower.endsWith('.doc') ||
-    nameLower.endsWith('.docx') ||
-    nameLower.endsWith('.xls') ||
-    nameLower.endsWith('.xlsx');
-  if (!ok) {
+  if (!/\.(pdf|docx|xlsx)$/i.test(file.originalname)) {
+    const ext = path.extname(file.originalname) || '(không có đuôi)';
     cb(
       new ApiError(
         400,
-        'Chỉ chấp nhận file PDF, Word (.doc, .docx) hoặc Excel (.xls, .xlsx)',
+        `File ${ext} không đúng định dạng. Chỉ chấp nhận PDF (.pdf), Word (.docx) hoặc Excel (.xlsx). ` +
+          'File Word/Excel cũ (.doc, .xls): mở bằng Word/Excel rồi chọn "Lưu thành" .docx/.xlsx.',
         'DOCUMENT_FILE_TYPE',
       ),
     );

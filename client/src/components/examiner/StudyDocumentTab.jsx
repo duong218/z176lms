@@ -24,7 +24,7 @@ import { useConfirm } from '../ConfirmDialog';
 const SCOPE_COMMON = 'Common';
 const SCOPE_DEPARTMENT = 'DepartmentSpecific';
 
-const ACCEPTED_EXTENSIONS = '.pdf,.doc,.docx,.xls,.xlsx';
+const ACCEPTED_EXTENSIONS = '.pdf,.docx,.xlsx'; // Trợ lý AI chỉ đọc được 3 loại này; .doc/.xls cũ bị server từ chối
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 // MỚI — Dropdown tự dựng, thay cho <select> native. Danh sách xổ xuống của
@@ -180,6 +180,15 @@ export const StudyDocumentTab = () => {
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0] ?? null;
+    if (selected && !/\.(pdf|docx|xlsx)$/i.test(selected.name)) {
+      setFormError(
+        `File "${selected.name}" không đúng định dạng. Chỉ chấp nhận PDF (.pdf), Word (.docx) hoặc Excel (.xlsx). ` +
+          'File Word/Excel cũ (.doc, .xls): mở bằng Word/Excel rồi chọn "Lưu thành" .docx/.xlsx.',
+      );
+      setFile(null);
+      e.target.value = '';
+      return;
+    }
     if (selected && selected.size > MAX_FILE_BYTES) {
       setFormError('File vượt quá dung lượng cho phép (tối đa 20MB).');
       setFile(null);
@@ -371,7 +380,7 @@ export const StudyDocumentTab = () => {
               className="w-full text-base file:mr-3 file:min-h-[44px] file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-[#008BC5] file:text-white file:font-semibold hover:file:bg-[#007ba1] file:cursor-pointer cursor-pointer"
             />
             <p className="text-sm text-slate-500 mt-1.5">
-              Định dạng: PDF, Word (.doc, .docx), Excel (.xls, .xlsx) — tối đa 20MB.
+              Định dạng: PDF (.pdf), Word (.docx), Excel (.xlsx) — tối đa 20MB. Không nhận .doc, .xls cũ.
               {file && <span className="text-[#0F172A] font-medium"> Đã chọn: {file.name} ({formatFileSize(file.size)})</span>}
             </p>
           </div>
