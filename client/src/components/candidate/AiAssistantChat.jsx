@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bot, Send, Loader2, AlertCircle, RotateCcw, X, Mic, Download } from 'lucide-react';
 import { askAiAssistant } from '../../services/ai-assistant.service';
+import { splitTables } from '../../lib/mdTable';
 
 const SUGGESTIONS = [
   'Tóm tắt các kiến thức chính trong tài liệu của tôi',
@@ -57,12 +58,46 @@ const toMermaid = (json) => {
   return ['mindmap', `  root((${clean(tree.name)}))`, ...(tree.children ?? []).flatMap((c) => lines(c, 2))].join('\n');
 };
 
+// Chữ thường: bảng markdown dựng thành <table> (cuộn ngang được trên mobile), phần còn lại giữ **đậm** như cũ.
+const NUM = /^[\d.,%\s+-]+$/; // ô toàn số -> căn phải cho dễ so sánh
+const renderText = (text, key) =>
+  splitTables(text).map((b, n) =>
+    b.type === 'text' ? (
+      <span key={`${key}-${n}`}>{renderBold(b.text)}</span>
+    ) : (
+      <div key={`${key}-${n}`} className="my-2 overflow-x-auto">
+        <table className="min-w-full border-collapse text-base lg:text-sm whitespace-normal">
+          <thead>
+            <tr>
+              {b.head.map((h, c) => (
+                <th key={c} className="px-3 py-1.5 bg-slate-100 border border-slate-200 text-left font-semibold">
+                  {renderBold(h)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {b.rows.map((r, ri) => (
+              <tr key={ri}>
+                {r.map((v, c) => (
+                  <td key={c} className={`px-3 py-1.5 border border-slate-200 ${NUM.test(v) ? 'text-right tabular-nums' : ''}`}>
+                    {renderBold(v)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ),
+  );
+
 // Tách khối ``` ``` : khối mindmap -> nút mở sơ đồ; khối khác -> chữ đơn cách (giữ nguyên cây ├──); còn lại -> chữ đậm.
 const renderContent = (text, onShow) => {
   const parts = text.split(/```(\w*)\n?([\s\S]*?)```/g); // [chữ, lang, code, chữ, lang, code, ...]
   const out = [];
   for (let i = 0; i < parts.length; i += 3) {
-    out.push(<span key={i}>{renderBold(parts[i])}</span>);
+    out.push(...renderText(parts[i], i));
     if (i + 2 >= parts.length) break;
     const [lang, code] = [parts[i + 1], parts[i + 2]];
     out.push(
