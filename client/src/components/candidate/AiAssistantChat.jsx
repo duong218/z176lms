@@ -66,11 +66,11 @@ const renderText = (text, key) =>
       <span key={`${key}-${n}`}>{renderBold(b.text)}</span>
     ) : (
       <div key={`${key}-${n}`} className="my-2 overflow-x-auto">
-        <table className="min-w-full border-collapse text-base lg:text-sm whitespace-normal">
+        <table className="min-w-full border-collapse text-base text-[#0F172A] whitespace-normal">
           <thead>
             <tr>
               {b.head.map((h, c) => (
-                <th key={c} className="px-3 py-1.5 bg-slate-100 border border-slate-200 text-left font-semibold">
+                <th key={c} className="px-3 py-1.5 bg-slate-200 border border-slate-400 text-left font-bold">
                   {renderBold(h)}
                 </th>
               ))}
@@ -80,7 +80,7 @@ const renderText = (text, key) =>
             {b.rows.map((r, ri) => (
               <tr key={ri}>
                 {r.map((v, c) => (
-                  <td key={c} className={`px-3 py-1.5 border border-slate-200 ${NUM.test(v) ? 'text-right tabular-nums' : ''}`}>
+                  <td key={c} className={`px-3 py-1.5 border border-slate-400 ${NUM.test(v) ? 'text-right tabular-nums' : ''}`}>
                     {renderBold(v)}
                   </td>
                 ))}
