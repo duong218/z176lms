@@ -902,7 +902,7 @@ export async function confirmEmployeeImportRows(rows, adminId, ipAddress, { depa
               'IMPORT_TARGET_NO_LONGER_LOCKED',
             );
           }
-          const { user, tempPassword } = await reactivateLockedAccount({
+          const { user, tempPassword, employee: reusedEmployee } = await reactivateLockedAccount({
             adminId,
             existingUser,
             existingEmployee,
@@ -910,6 +910,8 @@ export async function confirmEmployeeImportRows(rows, adminId, ipAddress, { depa
             employeeData: { ...row, departmentId, extraDepartmentIds },
             ipAddress,
           });
+          // Giống luồng tạo tài khoản thủ công: vào ngay kỳ thi đang phát hành (nếu có); lỗi gán không làm hỏng import
+          await assignEmployeeToActiveExamIfAny(reusedEmployee).catch(() => {});
           results.push({
             row: rowIndex,
             employeeCode: row.employeeCode,
@@ -924,6 +926,7 @@ export async function confirmEmployeeImportRows(rows, adminId, ipAddress, { depa
           continue;
         }
 
+        let employeeToAssign = existingEmployee;
         if (existingEmployee) {
           existingEmployee.fullname = row.fullname;
           existingEmployee.departmentId = departmentId;
@@ -937,7 +940,7 @@ export async function confirmEmployeeImportRows(rows, adminId, ipAddress, { depa
           existingEmployee.position = row.position;
           await existingEmployee.save();
         } else {
-          await Employee.create({
+          employeeToAssign = await Employee.create({
             fullname: row.fullname,
             departmentId,
             extraDepartmentIds,
@@ -950,6 +953,11 @@ export async function confirmEmployeeImportRows(rows, adminId, ipAddress, { depa
             position: row.position,
             isActive: true,
           });
+        }
+        // Nhân viên đang hoạt động mà chưa có đề trong kỳ thi đang phát hành (vd vừa được chuyển sang phòng mới) -> gán ngay.
+        // Đã có đề rồi thì hàm tự bỏ qua; lỗi gán không làm hỏng import.
+        if (employeeToAssign.isActive !== false) {
+          await assignEmployeeToActiveExamIfAny(employeeToAssign).catch(() => {});
         }
         results.push({
           row: rowIndex,

@@ -1823,7 +1823,7 @@ A. Phương án 1
 *B. Phương án đúng (đánh dấu * ở đầu)
 C. Phương án 3
 D. Phương án đúng khác (hoặc GẠCH CHÂN cả dòng)`}</pre>
-                  <p>Bộ phận để trống = Phạm vi Chung; có ghi tên bộ phận = Phạm vi Riêng. Chỉ nhận file .docx.</p>
+                  <p>Bộ phận để trống = Phạm vi Chung; ghi <b>MÃ bộ phận</b> (vd: <code>bộ phận: HCHC</code>) = Phạm vi Riêng. Mã phải đã có trong hệ thống — mã lạ sẽ báo lỗi câu đó (Word không tự tạo bộ phận). Câu dùng cho nhiều bộ phận thì viết lặp lại, mỗi bộ phận 1 câu. Chỉ nhận file .docx.</p>
                   <p>Gõ chữ cái A. B. C. trực tiếp ở đầu mỗi dòng (không dùng danh sách tự đánh số của Word). Gạch chân phải phủ cả dòng đáp án — nếu chỉ gạch một phần, hệ thống sẽ hỏi lại. Dùng dấu * ở đầu dòng là cách chắc chắn nhất.</p>
                 </div>
               )}
@@ -1869,9 +1869,14 @@ D. Phương án đúng khác (hoặc GẠCH CHÂN cả dòng)`}</pre>
                           <td className="py-1.5">chung — hoặc — riêng (mặc định: chung)</td>
                         </tr>
                         <tr>
-                          <td className="py-1.5 pr-2 font-semibold">Bộ phận</td>
+                          <td className="py-1.5 pr-2 font-semibold">Mã bộ phận</td>
                           <td className="py-1.5 pr-2 text-amber-600 font-semibold">Nếu Phạm vi = riêng</td>
-                          <td className="py-1.5">Tên bộ phận — nếu chưa có, bạn sẽ được tạo ngay ở bước xem trước</td>
+                          <td className="py-1.5">Mã bộ phận đã có trong hệ thống (vd: HCHC) — hệ thống tìm bộ phận theo mã này</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1.5 pr-2 font-semibold">Bộ phận</td>
+                          <td className="py-1.5 pr-2 text-slate-400">Không</td>
+                          <td className="py-1.5">Tên bộ phận (để dễ đọc) — chỉ dùng khi mã chưa có và bạn tạo bộ phận mới ở bước xem trước</td>
                         </tr>
                         <tr>
                           <td className="py-1.5 pr-2 font-semibold">Loại</td>
@@ -1937,7 +1942,7 @@ D. Phương án đúng khác (hoặc GẠCH CHÂN cả dòng)`}</pre>
 
               {importFileKind === 'excel' && (
                 <p className="text-xs text-slate-500">
-                  Xem sheet "HuongDan" trong file mẫu để biết chi tiết từng cột: Chủ đề, Nội dung, Phạm vi, Bộ phận, Loại, Đáp án, Độ khó, Lựa chọn 1–8, Đáp án đúng.
+                  Xem sheet "HuongDan" trong file mẫu để biết chi tiết từng cột: Chủ đề, Nội dung, Phạm vi, Mã bộ phận, Bộ phận, Loại, Đáp án, Độ khó, Lựa chọn 1–8, Đáp án đúng.
                 </p>
               )}
 

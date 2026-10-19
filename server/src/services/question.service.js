@@ -25,7 +25,7 @@ import {
 import { QUESTION_USAGE } from '../models/constants.js';
 import { questionUsageFilter } from '../models/question.model.js';
 import { ApiError, assertFound } from '../utils/api-error.js';
-import { findDepartmentByName, findOrCreateDepartmentByName, upsertDepartmentForImport } from './department.service.js';
+import { findDepartmentByCode, findOrCreateDepartmentByName, upsertDepartmentForImport } from './department.service.js';
 import { normalizeDeptName } from '../models/department.model.js';
 import { findOrCreateTopicByName } from './topic.service.js';
 import { env } from '../config/env.js';
@@ -548,6 +548,47 @@ function resolveEnum(map, raw, fieldLabel) {
   return val;
 }
 
+// Đọc bộ phận của 1 dòng import (r = dòng đã chuẩn hóa key) cho câu Riêng.
+// Phòng ban xác định theo MÃ (khóa chính); tên chỉ để đọc cho dễ — tránh tạo trùng phòng do lệch tên.
+// Excel: cột "Mã bộ phận" (+ "Bộ phận" là tên). Word: ô "bộ phận" chính là mã (không có tên).
+export function readImportDepartmentRef(r, rowIndex) {
+  const code = String(r.mabophan ?? r.maboph ?? r.deptcode ?? '').trim();
+  if (!code) {
+    throw new ApiError(
+      400,
+      `Dòng ${rowIndex}: câu thuộc phạm vi Riêng phải ghi mã bộ phận`,
+      'IMPORT_ROW_INVALID',
+    );
+  }
+  return {
+    code,
+    name: String(r.department ?? r.bophan ?? r.bophanname ?? '').trim(),
+    description: String(r.motabophan ?? r.mota ?? r.deptdescription ?? '').trim(),
+  };
+}
+
+// Lỗi khi mã bộ phận chưa có trong hệ thống.
+// Có cả tên + mã (Excel) -> IMPORT_DEPARTMENT_NOT_FOUND, đi vào luồng "tạo bộ phận mới" ở bước preview.
+// Chỉ có mã (Word) -> IMPORT_DEPARTMENT_CODE_UNKNOWN: báo lỗi dòng đó, không tự tạo phòng từ phía người tạo đề.
+export function buildImportDepartmentNotFound(rowIndex, { code, name, description }) {
+  if (!name) {
+    return new ApiError(
+      400,
+      `Dòng ${rowIndex}: không tìm thấy bộ phận có mã "${code}" — kiểm tra lại mã, hoặc nhờ quản trị viên tạo bộ phận trước`,
+      'IMPORT_DEPARTMENT_CODE_UNKNOWN',
+    );
+  }
+  const err = new ApiError(
+    400,
+    `Dòng ${rowIndex}: không tìm thấy bộ phận có mã "${code}" ("${name}")`,
+    'IMPORT_DEPARTMENT_NOT_FOUND',
+  );
+  err.departmentName = name;
+  err.departmentCode = code;
+  err.departmentDescription = description;
+  return err;
+}
+
 // Xử lý đọc & parse dữ liệu của 1 dòng Excel thành object câu hỏi hoàn chỉnh
 async function buildQuestionFromImportRow(row, rowIndex) {
   const r = mapRowKeys(row);
@@ -566,26 +607,9 @@ async function buildQuestionFromImportRow(row, rowIndex) {
   const scope = resolveEnum(SCOPE_MAP, r.scope ?? r.phamvi ?? 'common', 'scope');
   let departmentId;
   if (scope === QUESTION_SCOPE.DEPARTMENT_SPECIFIC) {
-    const deptName = r.department ?? r.bophan ?? r.bophanname;
-    if (!deptName) {
-      throw new ApiError(
-        400,
-        `Dòng ${rowIndex}: scope riêng cần tên bộ phận`,
-        'IMPORT_ROW_INVALID',
-      );
-    }
-    const dept = await findDepartmentByName(String(deptName));
-    if (!dept) {
-      const err = new ApiError(
-        400,
-        `Dòng ${rowIndex}: không tìm thấy bộ phận "${deptName}"`,
-        'IMPORT_DEPARTMENT_NOT_FOUND',
-      );
-      err.departmentName = String(deptName).trim();
-      err.departmentCode = String(r.mabophan ?? r.maboph ?? r.deptcode ?? '').trim();
-      err.departmentDescription = String(r.motabophan ?? r.mota ?? r.deptdescription ?? '').trim();
-      throw err;
-    }
+    const ref = readImportDepartmentRef(r, rowIndex);
+    const dept = await findDepartmentByCode(ref.code);
+    if (!dept) throw buildImportDepartmentNotFound(rowIndex, ref);
     departmentId = dept._id;
   }
 
@@ -882,6 +906,7 @@ export async function confirmImportQuestions(token, options, createdBy, actorUse
 //   C. Phương án 3
 //   D. Phương án đúng khác (đánh dấu bằng cách GẠCH CHÂN toàn bộ dòng)
 //   - Bộ phận để trống -> Phạm vi Chung; có ghi bộ phận -> Phạm vi Riêng.
+//   - Ô "bộ phận" ghi MÃ bộ phận (vd: HCHC), không ghi tên. Mã không tồn tại -> báo lỗi dòng đó (Word không tự tạo phòng).
 //   - Cho phép cả 2 cách đánh dấu (*, gạch chân) trong cùng 1 file. Cách nào
 //     xuất hiện NHIỀU hơn trong toàn file được coi là "cách chính". Câu nào
 //     chỉ đánh dấu theo cách còn lại (thiểu số) sẽ bị đưa vào needsReview để
@@ -1092,7 +1117,8 @@ async function readImportRowsFromWord(filePath) {
     const row = {
       chude: b.topicName,
       noidung: b.content,
-      bophan: b.deptName || undefined,
+      // Ô "bộ phận" của Word là MÃ bộ phận (xem buildQuestionFromImportRow)
+      mabophan: b.deptName || undefined,
       phamvi: b.deptName ? 'rieng' : 'chung',
       dokho: b.difficultyRaw || 'medium',
       correct: suggestedCorrect.join(','),
