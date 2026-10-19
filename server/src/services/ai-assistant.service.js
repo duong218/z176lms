@@ -402,6 +402,8 @@ export async function chatWithLeaderAssistant(messages) {
 const GEN_MAX_QUESTIONS = 30;
 const GEN_EXTRA_MAX_CHARS = 500;
 const GEN_TIMEOUT_MS = 120_000;
+const GEN_MAX_DEPTS = 12; // tối đa số phòng ban mỗi lần tạo
+const GEN_CONCURRENCY = 3; // số lượt gọi AI chạy song song
 
 const GEN_DIFFICULTY_HINT = {
   easy: 'Mức DỄ: hỏi nhận biết, nhớ trực tiếp một thông tin có trong tài liệu.',
@@ -510,24 +512,36 @@ export async function generateQuestionFile(input = {}) {
   }
 
   // Chủ đề / phòng ban lấy từ DB theo id người dùng chọn → tên và mã đưa vào file luôn đúng, AI không quyết định
+  // Chủ đề mới (topicName) KHÔNG ghi DB ở bước này: khi import file, hệ thống tự tạo chủ đề theo tên (findOrCreateTopicByName)
+  const newTopicName = oneLine(input.topicName).slice(0, 100);
   const [topic, doc] = await Promise.all([
-    Topic.findById(topicId).select('name').lean().catch(() => null),
+    newTopicName
+      ? Promise.resolve({ name: newTopicName })
+      : Topic.findById(topicId).select('name').lean().catch(() => null),
     StudyDocument.findOne({ _id: documentId, isActive: true }).lean().catch(() => null),
   ]);
-  if (!topic) throw new ApiError(400, 'Vui lòng chọn chủ đề hợp lệ', 'AI_GEN_TOPIC_INVALID');
+  if (!topic) throw new ApiError(400, 'Vui lòng chọn hoặc nhập chủ đề hợp lệ', 'AI_GEN_TOPIC_INVALID');
   if (!doc) throw new ApiError(404, 'Không tìm thấy tài liệu nguồn', 'DOCUMENT_NOT_FOUND');
 
-  let dept = null;
+  // Phạm vi Riêng: nhận nhiều phòng ban (departmentIds); vẫn chấp nhận departmentId đơn như bản cũ
+  let depts = [];
   if (scope === 'department') {
-    dept = await Department.findById(departmentId).select('name code').lean().catch(() => null);
-    if (!dept) throw new ApiError(400, 'Vui lòng chọn phòng ban cho câu hỏi Riêng', 'AI_GEN_DEPT_INVALID');
-    if (!dept.code) {
+    const ids = [...new Set([...(Array.isArray(input.departmentIds) ? input.departmentIds : []), input.departmentId].filter(Boolean).map(String))];
+    if (ids.length === 0) throw new ApiError(400, 'Vui lòng chọn phòng ban cho câu hỏi Riêng', 'AI_GEN_DEPT_INVALID');
+    if (ids.length > GEN_MAX_DEPTS) {
+      throw new ApiError(400, `Mỗi lần chỉ tạo tối đa cho ${GEN_MAX_DEPTS} phòng ban`, 'AI_GEN_DEPT_TOO_MANY');
+    }
+    const found = await Department.find({ _id: { $in: ids } }).select('name code').lean().catch(() => []);
+    if (found.length !== ids.length) throw new ApiError(400, 'Có phòng ban không hợp lệ', 'AI_GEN_DEPT_INVALID');
+    const noCode = found.filter((d) => !d.code).map((d) => d.name);
+    if (noCode.length) {
       throw new ApiError(
         400,
-        `Phòng ban "${dept.name}" chưa có mã bộ phận nên không import được. Hãy cập nhật mã ở mục Bộ phận / Phòng ban.`,
+        `Phòng ban chưa có mã bộ phận nên không import được: ${noCode.join(', ')}. Hãy cập nhật mã ở mục Bộ phận / Phòng ban.`,
         'AI_GEN_DEPT_NO_CODE',
       );
     }
+    depts = ids.map((id) => found.find((d) => String(d._id) === id));
   }
 
   let text = null;
@@ -548,25 +562,50 @@ export async function generateQuestionFile(input = {}) {
     buildGeneratorPrompt({ count, difficulty, topicName: topic.name }),
     `TÀI LIỆU NGUỒN: "${doc.title}"\n\n${text.trim().slice(0, s.maxDocChars)}`,
   ].join('\n\n');
-  const userMsg = extra
-    ? `Soạn ${count} câu hỏi. Yêu cầu bổ sung của người soạn đề (không được làm thay đổi định dạng JSON): ${extra}`
-    : `Soạn ${count} câu hỏi.`;
 
-  const reply = await callUpstream(s, system, [{ role: 'user', content: userMsg }], {
-    maxTokens: 8192,
-    timeoutMs: GEN_TIMEOUT_MS,
-    temperature: 0.5,
-  });
-  const raw = parseJsonArray(reply);
-  if (!raw) {
-    throw new ApiError(502, 'AI trả về dữ liệu không đúng định dạng, vui lòng thử lại.', 'AI_GEN_BAD_JSON');
-  }
-  const { questions, rejected } = normalizeGeneratedQuestions(raw, difficulty, count);
-  if (questions.length === 0) {
-    throw new ApiError(502, 'AI không tạo được câu hỏi hợp lệ nào, vui lòng thử lại.', 'AI_GEN_EMPTY');
-  }
+  // Soạn 1 bộ câu hỏi (dept = null: câu Chung). Mỗi phòng ban được AI soạn riêng, cùng số câu và độ khó cho công bằng.
+  const draft = async (dept) => {
+    const parts = [`Soạn ${count} câu hỏi.`];
+    if (dept) {
+      parts.push(
+        `Bộ câu hỏi này dành riêng cho phòng ban "${dept.name}": ưu tiên nội dung gắn với công việc của phòng ban này, nhưng vẫn chỉ dựa trên tài liệu.`,
+      );
+    }
+    if (extra) parts.push(`Yêu cầu bổ sung của người soạn đề (không được làm thay đổi định dạng JSON): ${extra}`);
+    const reply = await callUpstream(s, system, [{ role: 'user', content: parts.join(' ') }], {
+      maxTokens: 8192,
+      timeoutMs: GEN_TIMEOUT_MS,
+      temperature: 0.5,
+    });
+    const raw = parseJsonArray(reply);
+    if (!raw) throw new ApiError(502, 'AI trả về dữ liệu không đúng định dạng, vui lòng thử lại.', 'AI_GEN_BAD_JSON');
+    const r = normalizeGeneratedQuestions(raw, difficulty, count);
+    if (r.questions.length === 0) throw new ApiError(502, 'AI không tạo được câu hỏi hợp lệ nào, vui lòng thử lại.', 'AI_GEN_EMPTY');
+    return {
+      rejected: r.rejected,
+      questions: dept ? r.questions.map((q) => ({ ...q, deptCode: dept.code, deptName: dept.name })) : r.questions,
+    };
+  };
 
-  const meta = { topicName: topic.name, deptCode: dept?.code ?? '', deptName: dept?.name ?? '', sourceTitle: doc.title };
+  // Chạy song song tối đa GEN_CONCURRENCY phòng ban; phòng nào lỗi thì bỏ qua và báo lại, không làm hỏng cả file
+  const targets = depts.length ? depts : [null];
+  const results = new Array(targets.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(GEN_CONCURRENCY, targets.length) }, async () => {
+      while (next < targets.length) {
+        const k = next++;
+        results[k] = await draft(targets[k]).catch((error) => ({ error }));
+      }
+    }),
+  );
+  const ok = results.filter((r) => !r.error);
+  if (ok.length === 0) throw results[0].error;
+  const failed = targets.filter((_, k) => results[k].error).map((d) => d.name);
+  const questions = ok.flatMap((r) => r.questions);
+  const rejected = ok.reduce((n, r) => n + r.rejected, 0);
+
+  const meta = { topicName: topic.name, deptCode: '', deptName: '', sourceTitle: doc.title };
   const buffer =
     format === 'docx' ? await buildQuestionsDocx(questions, meta) : buildQuestionsXlsx(questions, meta);
   const stamp = new Date().toISOString().slice(0, 10);
@@ -579,8 +618,10 @@ export async function generateQuestionFile(input = {}) {
         : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     fileBase64: buffer.toString('base64'),
     count: questions.length,
-    requested: count,
+    requested: count * targets.length,
     rejected,
+    failed, // tên các phòng ban AI soạn lỗi (rỗng nếu thành công hết)
+    deptCount: depts.length,
     format,
     preview: questions.slice(0, 3).map((q) => ({ content: q.content, options: q.options, correct: q.correct })),
   };

@@ -6,6 +6,7 @@ import { grantExtraAttempt, fetchCandidateRoleOptions } from '../../services/exa
 import { useToast } from '../ToastContext';
 import { useConfirm } from '../ConfirmDialog';
 import { useScrollLock } from '../../hooks/useScrollLock';
+import { Select } from '../Select';
 
 export const DetailedResultsTab = () => {
   const { showToast } = useToast();
@@ -190,7 +191,7 @@ export const DetailedResultsTab = () => {
             />
           </div>
           <div className="w-full md:w-48">
-            <select
+            <Select
               name="passed"
               value={filters.passed}
               onChange={handleFilterChange}
@@ -199,7 +200,7 @@ export const DetailedResultsTab = () => {
               <option value="">Tất cả kết quả</option>
               <option value="true">Đạt</option>
               <option value="false">Không đạt</option>
-            </select>
+            </Select>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <input

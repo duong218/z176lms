@@ -52,7 +52,7 @@ export async function buildQuestionsDocx(questions, { topicName, deptCode = '', 
   );
 
   questions.forEach((q, i) => {
-    const head = `Câu ${i + 1}: (chủ đề: ${topicName} - bộ phận: ${deptCode} - độ khó: ${DIFFICULTY_LABEL[q.difficulty]}) ${q.content}`;
+    const head = `Câu ${i + 1}: (chủ đề: ${topicName} - bộ phận: ${q.deptCode ?? deptCode} - độ khó: ${DIFFICULTY_LABEL[q.difficulty]}) ${q.content}`;
     body.push(para(run(head, { bold: true }), { before: 240 }));
     q.options.forEach((opt, idx) => {
       const isCorrect = idx + 1 === q.correct;
@@ -102,15 +102,17 @@ const XLSX_HEADERS = [
  * @returns {Buffer}
  */
 export function buildQuestionsXlsx(questions, { topicName, deptCode = '', deptName = '', sourceTitle }) {
-  const isDept = Boolean(deptCode);
   const rows = questions.map((q) => {
+    // Mỗi câu có thể mang phòng ban riêng (tạo cho nhiều phòng ban trong 1 file); không có thì dùng phòng ban chung của file
+    const code = q.deptCode ?? deptCode;
+    const isDept = Boolean(code);
     const opts = Array.from({ length: 8 }, (_, i) => q.options[i] ?? '');
     return [
       topicName,
       q.content,
       isDept ? 'riêng' : 'chung',
-      deptCode,
-      isDept ? deptName : '',
+      code,
+      isDept ? (q.deptName ?? deptName) : '',
       'lý thuyết',
       'chọn 1',
       DIFFICULTY_LABEL[q.difficulty].toLowerCase(),

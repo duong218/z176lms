@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   ChevronDown,
 } from 'lucide-react';
-import { fetchTopics, fetchDepartments } from '../../services/examiner.service';
+import { fetchTopics, fetchDepartments, createTopic, fetchExamProposals } from '../../services/examiner.service';
 import {
   fetchStudyDocuments,
   uploadStudyDocument,
@@ -21,6 +21,7 @@ import {
 } from '../../services/study-document.service';
 import { useConfirm } from '../ConfirmDialog';
 
+const NEW_TOPIC = '__new__';
 const SCOPE_COMMON = 'Common';
 const SCOPE_DEPARTMENT = 'DepartmentSpecific';
 
@@ -101,15 +102,23 @@ function Select({ value, options, onChange, placeholder = '-- Chọn --', trigge
           style={{ maxHeight: `${menuStyle.maxHeight}px` }}
           data-lenis-prevent
         >
-          {options.map((opt) => (
+          {options.map((opt, idx) => opt.heading ? (
+            <div key={`h${idx}`} className="px-3.5 pt-2 pb-1 text-xs font-bold uppercase text-slate-500">{opt.heading}</div>
+          ) : (
             <button
               key={opt.value}
               type="button"
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className="w-full text-left px-3.5 min-h-[44px] flex items-center text-base"
-              style={value === opt.value ? { backgroundColor: '#EAF6FF', color: '#008BC5', fontWeight: 600 } : { color: '#0F172A' }}
+              className="w-full text-left px-3.5 min-h-[44px] flex items-center justify-between gap-2 text-base"
+              style={{
+                ...(opt.badge ? { backgroundColor: '#F0FDF4', borderLeft: '4px solid #22C55E' } : {}),
+                ...(value === opt.value ? { backgroundColor: '#EAF6FF', color: '#008BC5', fontWeight: 600 } : { color: '#0F172A' }),
+              }}
             >
-              {opt.label}
+              <span className="min-w-0">{opt.label}</span>
+              {opt.badge && (
+                <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-[#22C55E] text-white">{opt.badge}</span>
+              )}
             </button>
           ))}
         </div>
@@ -148,7 +157,8 @@ export const StudyDocumentTab = () => {
   const [notice, setNotice] = useState(null);
 
   const [form, setForm] = useState({
-    topicId: '',
+    topicId: '', // '' | id chủ đề có sẵn | NEW_TOPIC
+    newTopicName: '',
     title: '',
     scope: SCOPE_COMMON,
     departmentId: '',
@@ -158,15 +168,19 @@ export const StudyDocumentTab = () => {
   const [formError, setFormError] = useState(null);
 
   const [busyId, setBusyId] = useState(null); // id đang xem/tải/xóa dở
+  const [publishedTopicIds, setPublishedTopicIds] = useState([]); // chủ đề của kỳ thi đang phát hành → tô nổi bật
 
   const loadAll = () => {
     setLoading(true);
     setError(null);
-    Promise.all([fetchStudyDocuments(), fetchTopics(), fetchDepartments()])
-      .then(([docs, topicList, deptList]) => {
+    Promise.all([fetchStudyDocuments(), fetchTopics(), fetchDepartments(), fetchExamProposals().catch(() => [])])
+      .then(([docs, topicList, deptList, exams]) => {
         setDocuments(Array.isArray(docs) ? docs : []);
         setTopics(Array.isArray(topicList) ? topicList : []);
         setDepartments(Array.isArray(deptList) ? deptList : []);
+        setPublishedTopicIds(
+          (Array.isArray(exams) ? exams : []).filter((e) => e.status === 'published').map((e) => String(e.topicId?._id ?? e.topicId)),
+        );
       })
       .catch((err) => {
         setError(err?.message || 'Không thể tải danh sách tài liệu.');
@@ -200,7 +214,7 @@ export const StudyDocumentTab = () => {
   };
 
   const resetForm = () => {
-    setForm({ topicId: '', title: '', scope: SCOPE_COMMON, departmentId: '' });
+    setForm({ topicId: '', newTopicName: '', title: '', scope: SCOPE_COMMON, departmentId: '' });
     setFile(null);
   };
 
@@ -211,6 +225,10 @@ export const StudyDocumentTab = () => {
 
     if (!form.topicId) {
       setFormError('Vui lòng chọn chủ đề.');
+      return;
+    }
+    if (form.topicId === NEW_TOPIC && !form.newTopicName.trim()) {
+      setFormError('Vui lòng nhập tên chủ đề mới.');
       return;
     }
     if (!file) {
@@ -224,8 +242,17 @@ export const StudyDocumentTab = () => {
 
     setSubmitting(true);
     try {
+      let topicId = form.topicId;
+      if (topicId === NEW_TOPIC) {
+        // Tài liệu cần chủ đề có thật trong hệ thống → tạo chủ đề trước. Nếu bước đăng file lỗi, chủ đề đã tạo được chọn sẵn
+        // để bấm đăng lại không bị báo trùng.
+        const created = await createTopic({ name: form.newTopicName.trim() });
+        topicId = created._id;
+        setTopics((prev) => (prev.some((t) => t._id === topicId) ? prev : [...prev, created]));
+        setForm((f) => ({ ...f, topicId, newTopicName: '' }));
+      }
       await uploadStudyDocument({
-        topicId: form.topicId,
+        topicId,
         title: form.title,
         scope: form.scope,
         departmentId: form.scope === SCOPE_DEPARTMENT ? form.departmentId : undefined,
@@ -320,9 +347,30 @@ export const StudyDocumentTab = () => {
                 value={form.topicId}
                 onChange={(val) => setForm((f) => ({ ...f, topicId: val }))}
                 placeholder="— Chọn chủ đề —"
-                options={topics.map((t) => ({ value: t._id, label: t.name }))}
+                options={[
+                  { value: NEW_TOPIC, label: '+ Chủ đề mới...' },
+                  ...(topics.length ? [{ heading: 'Chủ đề gợi ý (đã tạo trước đây)' }] : []),
+                  ...[...topics]
+                    .sort((a, b) => publishedTopicIds.includes(String(b._id)) - publishedTopicIds.includes(String(a._id)))
+                    .map((t) => ({
+                      value: t._id,
+                      label: t.name,
+                      badge: publishedTopicIds.includes(String(t._id)) ? 'Đang phát hành' : undefined,
+                    })),
+                ]}
                 triggerClassName="w-full min-h-[44px] px-3 py-2 text-base border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40 focus:border-[#008BC5]"
               />
+              {form.topicId === NEW_TOPIC && (
+                <input
+                  type="text"
+                  maxLength={100}
+                  autoFocus
+                  value={form.newTopicName}
+                  onChange={(e) => setForm((f) => ({ ...f, newTopicName: e.target.value }))}
+                  placeholder="Nhập tên chủ đề mới, ví dụ: An toàn xe nâng kho"
+                  className="w-full min-h-[44px] px-3 py-2 mt-2 text-base border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40 focus:border-[#008BC5]"
+                />
+              )}
             </div>
 
             <div>

@@ -8,6 +8,7 @@ import { fetchDepartments, createDepartment } from '../../services/examiner.serv
 import { useToast } from '../ToastContext';
 import { useConfirm } from '../ConfirmDialog';
 import { useScrollLock } from '../../hooks/useScrollLock';
+import { Select } from '../Select';
 
 const PROFILE_KEYS = ['fullname', 'employeeCode', 'dob', 'gender', 'phone', 'address', 'position'];
 // DB lưu ngày sinh dạng 'dd/mm/yyyy' (giống file Excel); <input type=date> dùng 'yyyy-mm-dd'.
@@ -882,7 +883,7 @@ export const AccountTab = ({ currentUser }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Phân quyền (Role)</label>
-                  <select
+                  <Select
                     required
                     value={newRoleId}
                     onChange={(e) => setNewRoleId(e.target.value)}
@@ -892,7 +893,7 @@ export const AccountTab = ({ currentUser }) => {
                     {roles.map(role => (
                       <option key={role._id} value={role._id}>{role.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 {/* Chỉ hiện khi role được chọn là Thí sinh (candidate) — bắt buộc kèm hồ sơ nhân viên */}
@@ -912,7 +913,7 @@ export const AccountTab = ({ currentUser }) => {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Phòng ban</label>
-                      <select
+                      <Select
                         required
                         value={newDepartmentId}
                         onChange={(e) => handleDepartmentSelectChange(e.target.value)}
@@ -924,7 +925,7 @@ export const AccountTab = ({ currentUser }) => {
                         ))}
                         {/* MỚI — Tạo phòng ban mới ngay tại đây, không phải thoát ra tab Phòng ban */}
                         <option value={CREATE_NEW_DEPARTMENT_VALUE}>+ Tạo phòng ban mới</option>
-                      </select>
+                      </Select>
                       {departments.length === 0 && (
                         <p className="text-xs text-amber-600 mt-1">
                           Chưa có phòng ban nào trong hệ thống — chọn "+ Tạo phòng ban mới" ở trên để tạo ngay.
@@ -1093,7 +1094,7 @@ export const AccountTab = ({ currentUser }) => {
                 ))}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Phòng ban chính</label>
-                  <select
+                  <Select
                     required
                     value={editPrimaryDeptId}
                     onChange={(e) => {
@@ -1106,7 +1107,7 @@ export const AccountTab = ({ currentUser }) => {
                     {departments.map((dept) => (
                       <option key={dept._id} value={dept._id}>{dept.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">
@@ -1132,7 +1133,7 @@ export const AccountTab = ({ currentUser }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Giới tính</label>
-                  <select
+                  <Select
                     value={editProfile.gender ?? ''}
                     onChange={(e) => setEditProfile((p) => ({ ...p, gender: e.target.value }))}
                     className={PROFILE_INPUT_CLASS}
@@ -1140,7 +1141,7 @@ export const AccountTab = ({ currentUser }) => {
                     <option value="">—</option>
                     <option value="Nam">Nam</option>
                     <option value="Nữ">Nữ</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày sinh</label>
@@ -1203,7 +1204,7 @@ export const AccountTab = ({ currentUser }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Phân quyền mới</label>
-                  <select
+                  <Select
                     required
                     value={editingRoleId}
                     onChange={(e) => setEditingRoleId(e.target.value)}
@@ -1212,7 +1213,7 @@ export const AccountTab = ({ currentUser }) => {
                     {roles.map(role => (
                       <option key={role._id} value={role._id}>{role.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="pt-2 flex gap-3 pb-1">
                   <button

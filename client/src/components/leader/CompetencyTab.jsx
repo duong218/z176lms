@@ -4,6 +4,7 @@ import { fetchDepartmentCompetency } from '../../services/analytics.service';
 import { CompetencyView, toneOf } from '../CompetencyBars';
 import { Pagination } from '../Pagination';
 import { ReadinessSection } from './ReadinessSection';
+import { Select } from '../Select';
 
 const PAGE_SIZE = 8;
 
@@ -133,7 +134,7 @@ export const CompetencyTab = () => {
                 className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-[#CBD5E1] bg-white text-base min-touch-target"
               />
             </div>
-            <select
+            <Select
               value={sort}
               onChange={(e) => {
                 setSort(e.target.value);
@@ -147,7 +148,7 @@ export const CompetencyTab = () => {
                   {s.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="space-y-3">

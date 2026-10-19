@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Select } from '../Select';
 import {
   BookOpen,
   ClipboardCheck,
@@ -388,7 +389,7 @@ export const OverviewTab = ({ onNavigate }) => {
             <>
               <label className="block">
                 <span className="sr-only">Chọn chủ đề</span>
-                <select
+                <Select
                   value={selectedTopicId}
                   onChange={(e) => setSelectedTopicId(e.target.value)}
                   className="w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
@@ -398,7 +399,7 @@ export const OverviewTab = ({ onNavigate }) => {
                       {t.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
 
               {coverageLoading ? (

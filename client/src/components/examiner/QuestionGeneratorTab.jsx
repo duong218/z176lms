@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, Loader2, AlertCircle, AlertTriangle, Download, CheckCircle2, FileText } from 'lucide-react';
-import { fetchTopics, fetchDepartments } from '../../services/examiner.service';
+import { SelectBox } from '../Select';
+import { fetchTopics, fetchDepartments, fetchExamProposals } from '../../services/examiner.service';
 import { fetchStudyDocuments } from '../../services/study-document.service';
 import { fetchAiStatus, generateQuestionFile, downloadBase64File } from '../../services/ai-assistant.service';
 
 const MAX_QUESTIONS = 30;
 const MAX_HISTORY = 5;
+const MAX_DEPTS = 12;
+const NEW_TOPIC = '__new__';
 const FORMAT_LABEL = { docx: 'Word', xlsx: 'Excel' };
 
 const inputCls =
-  'w-full px-3 py-2 border border-slate-300 rounded-lg text-base bg-white focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40';
+  'w-full min-w-0 max-w-full px-3 py-2 border border-slate-300 rounded-lg text-base bg-white focus:outline-none focus:ring-2 focus:ring-[#008BC5]/40';
 const labelCls = 'block text-sm font-semibold text-[#0F172A] mb-1';
 
 /**
@@ -24,12 +27,14 @@ export const QuestionGeneratorTab = () => {
   const [documents, setDocuments] = useState([]);
   const [topics, setTopics] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [publishedTopicIds, setPublishedTopicIds] = useState([]); // chủ đề của kỳ thi đang phát hành → tô nổi bật
 
   const [form, setForm] = useState({
     documentId: '',
-    topicId: '',
+    topicId: '', // '' | id chủ đề có sẵn | NEW_TOPIC
+    newTopicName: '',
     scope: 'common', // 'common' | 'department'
-    departmentId: '',
+    departmentIds: [], // phạm vi Riêng: chọn nhiều phòng ban, mỗi phòng AI soạn 1 bộ câu hỏi riêng
     difficulty: 'medium', // easy | medium | hard | mixed
     count: 10,
     format: 'docx',
@@ -41,13 +46,16 @@ export const QuestionGeneratorTab = () => {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchStudyDocuments(), fetchTopics(), fetchDepartments(), fetchAiStatus().catch(() => ({ enabled: false }))])
-      .then(([docs, topicList, deptList, status]) => {
+    Promise.all([fetchStudyDocuments(), fetchTopics(), fetchDepartments(), fetchAiStatus().catch(() => ({ enabled: false })), fetchExamProposals().catch(() => [])])
+      .then(([docs, topicList, deptList, status, exams]) => {
         if (cancelled) return;
         setDocuments(Array.isArray(docs) ? docs : []);
         setTopics(Array.isArray(topicList) ? topicList : []);
         setDepartments(Array.isArray(deptList) ? deptList : []);
         setAiEnabled(Boolean(status?.enabled));
+        setPublishedTopicIds(
+          (Array.isArray(exams) ? exams : []).filter((e) => e.status === 'published').map((e) => String(e.topicId?._id ?? e.topicId)),
+        );
       })
       .catch((err) => !cancelled && setLoadError(err?.message || 'Không tải được dữ liệu.'))
       .finally(() => !cancelled && setLoading(false));
@@ -57,20 +65,22 @@ export const QuestionGeneratorTab = () => {
   }, []);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+  const usableDepts = departments.filter((d) => d.code); // phòng ban chưa có mã thì không import được
+  const allSelected = usableDepts.length > 0 && form.departmentIds.length === usableDepts.length;
+  const toggleDept = (id) =>
+    set({ departmentIds: form.departmentIds.includes(id) ? form.departmentIds.filter((x) => x !== id) : [...form.departmentIds, id] });
 
-  // Chọn tài liệu → gợi ý sẵn chủ đề và phạm vi theo tài liệu đó (vẫn đổi được)
+  // Chọn tài liệu → chỉ gợi ý sẵn phạm vi theo tài liệu đó (vẫn đổi được). Chủ đề do người tạo đề tự chọn / đặt mới.
   const handleDocumentChange = (documentId) => {
     const doc = documents.find((d) => d._id === documentId);
     const patch = { documentId };
     if (doc) {
-      const topicId = doc.topicId?._id || doc.topicId;
-      if (topicId) patch.topicId = topicId;
       if (doc.scope === 'DepartmentSpecific' && doc.departmentId) {
         patch.scope = 'department';
-        patch.departmentId = doc.departmentId._id || doc.departmentId;
+        patch.departmentIds = [doc.departmentId._id || doc.departmentId];
       } else {
         patch.scope = 'common';
-        patch.departmentId = '';
+        patch.departmentIds = [];
       }
     }
     set(patch);
@@ -80,8 +90,14 @@ export const QuestionGeneratorTab = () => {
     setError('');
     const count = Number(form.count);
     if (!form.documentId) return setError('Vui lòng chọn tài liệu nguồn.');
+    const isNewTopic = form.topicId === NEW_TOPIC;
+    const newTopicName = form.newTopicName.trim();
     if (!form.topicId) return setError('Vui lòng chọn chủ đề.');
-    if (form.scope === 'department' && !form.departmentId) return setError('Vui lòng chọn phòng ban cho câu hỏi Riêng.');
+    if (isNewTopic && !newTopicName) return setError('Vui lòng nhập tên chủ đề mới.');
+    if (form.scope === 'department' && form.departmentIds.length === 0) return setError('Vui lòng chọn ít nhất 1 phòng ban cho câu hỏi Riêng.');
+    if (form.scope === 'department' && form.departmentIds.length > MAX_DEPTS) {
+      return setError(`Mỗi lần chỉ tạo tối đa cho ${MAX_DEPTS} phòng ban. Hãy bỏ bớt hoặc tạo làm 2 lần.`);
+    }
     if (!Number.isInteger(count) || count < 1 || count > MAX_QUESTIONS) {
       return setError(`Số câu phải từ 1 đến ${MAX_QUESTIONS}.`);
     }
@@ -89,9 +105,9 @@ export const QuestionGeneratorTab = () => {
     try {
       const data = await generateQuestionFile({
         documentId: form.documentId,
-        topicId: form.topicId,
+        ...(isNewTopic ? { topicName: newTopicName } : { topicId: form.topicId }),
         scope: form.scope,
-        departmentId: form.scope === 'department' ? form.departmentId : undefined,
+        departmentIds: form.scope === 'department' ? form.departmentIds : undefined,
         difficulty: form.difficulty,
         count,
         format: form.format,
@@ -145,67 +161,119 @@ export const QuestionGeneratorTab = () => {
 
           <label className="block">
             <span className={labelCls}>Tài liệu nguồn (PDF / Word / Excel đã đăng ở mục Tài liệu ôn tập)</span>
-            <select className={inputCls} value={form.documentId} onChange={(e) => handleDocumentChange(e.target.value)}>
-              <option value="">-- Chọn tài liệu --</option>
-              {documents.map((d) => (
-                <option key={d._id} value={d._id}>
-                  {d.title} — {d.topicId?.name || 'Chưa có chủ đề'} (
-                  {d.scope === 'DepartmentSpecific' ? d.departmentId?.name || 'Riêng' : 'Chung'})
-                </option>
-              ))}
-            </select>
+            <SelectBox
+              value={form.documentId}
+              onChange={handleDocumentChange}
+              items={[
+                { value: '', label: '-- Chọn tài liệu --' },
+                ...documents.map((d) => ({
+                  value: d._id,
+                  label: `${d.title} — ${d.topicId?.name || 'Chưa có chủ đề'} (${
+                    d.scope === 'DepartmentSpecific' ? d.departmentId?.name || 'Riêng' : 'Chung'
+                  })`,
+                })),
+              ]}
+            />
           </label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="block">
+            <label className="block min-w-0">
               <span className={labelCls}>Chủ đề của câu hỏi</span>
-              <select className={inputCls} value={form.topicId} onChange={(e) => set({ topicId: e.target.value })}>
-                <option value="">-- Chọn chủ đề --</option>
-                {topics.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+              <SelectBox
+                value={form.topicId}
+                onChange={(topicId) => set({ topicId })}
+                items={[
+                  { value: '', label: '-- Chọn chủ đề --' },
+                  { value: NEW_TOPIC, label: '+ Chủ đề mới...' },
+                  ...(topics.length ? [{ heading: 'Chủ đề gợi ý (đã tạo trước đây)' }] : []),
+                  ...[...topics]
+                    .sort((a, b) => publishedTopicIds.includes(String(b._id)) - publishedTopicIds.includes(String(a._id)))
+                    .map((t) => ({
+                      value: t._id,
+                      label: t.name,
+                      badge: publishedTopicIds.includes(String(t._id)) ? 'Đang phát hành' : undefined,
+                    })),
+                ]}
+              />
+              {form.topicId === NEW_TOPIC && (
+                <input
+                  type="text"
+                  maxLength={100}
+                  autoFocus
+                  className={`${inputCls} mt-2`}
+                  value={form.newTopicName}
+                  onChange={(e) => set({ newTopicName: e.target.value })}
+                  placeholder="Nhập tên chủ đề mới, ví dụ: Hội thi nghiệp vụ giỏi tháng 11"
+                />
+              )}
             </label>
 
-            <label className="block">
+            <label className="block min-w-0">
               <span className={labelCls}>Phạm vi</span>
-              <select
-                className={inputCls}
+              <SelectBox
                 value={form.scope}
-                onChange={(e) => set({ scope: e.target.value, departmentId: e.target.value === 'common' ? '' : form.departmentId })}
-              >
-                <option value="common">Chung (mọi phòng ban)</option>
-                <option value="department">Riêng theo phòng ban</option>
-              </select>
+                onChange={(scope) => set({ scope, departmentIds: scope === 'common' ? [] : form.departmentIds })}
+                items={[
+                  { value: 'common', label: 'Chung (mọi phòng ban)' },
+                  { value: 'department', label: 'Riêng theo phòng ban' },
+                ]}
+              />
             </label>
 
             {form.scope === 'department' && (
-              <label className="block md:col-span-2">
-                <span className={labelCls}>Phòng ban</span>
-                <select className={inputCls} value={form.departmentId} onChange={(e) => set({ departmentId: e.target.value })}>
-                  <option value="">-- Chọn phòng ban --</option>
+              <div className="md:col-span-2 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-sm font-semibold text-[#0F172A]">
+                    Phòng ban ({form.departmentIds.length}/{usableDepts.length} đã chọn)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => set({ departmentIds: allSelected ? [] : usableDepts.map((d) => d._id) })}
+                    className="text-sm font-semibold text-[#008BC5] px-2 py-2 min-touch-target"
+                  >
+                    {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto border border-slate-300 rounded-lg divide-y divide-slate-100 bg-white">
                   {departments.map((d) => (
-                    <option key={d._id} value={d._id} disabled={!d.code}>
-                      {d.name} {d.code ? `(${d.code})` : '(chưa có mã bộ phận)'}
-                    </option>
+                    <label
+                      key={d._id}
+                      className={`flex items-start gap-3 px-3 py-2.5 min-touch-target ${d.code ? 'cursor-pointer hover:bg-[#E6F4FA]' : 'text-slate-400'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={!d.code}
+                        checked={form.departmentIds.includes(d._id)}
+                        onChange={() => toggleDept(d._id)}
+                        className="mt-1 w-4 h-4 shrink-0 accent-[#008BC5]"
+                      />
+                      <span className="min-w-0 break-words text-base">
+                        {d.name} {d.code ? `(${d.code})` : '(chưa có mã bộ phận)'}
+                      </span>
+                    </label>
                   ))}
-                </select>
-              </label>
+                </div>
+                <p className="text-sm text-slate-500 mt-1">
+                  AI soạn riêng một bộ {Number(form.count) || 0} câu cho từng phòng ban đã chọn (cùng độ khó, cùng số câu). Tối đa {MAX_DEPTS} phòng ban mỗi lần.
+                </p>
+              </div>
             )}
 
-            <label className="block">
+            <label className="block min-w-0">
               <span className={labelCls}>Độ khó</span>
-              <select className={inputCls} value={form.difficulty} onChange={(e) => set({ difficulty: e.target.value })}>
-                <option value="easy">Dễ</option>
-                <option value="medium">Trung bình</option>
-                <option value="hard">Khó</option>
-                <option value="mixed">Trộn đều 3 mức</option>
-              </select>
+              <SelectBox
+                value={form.difficulty}
+                onChange={(difficulty) => set({ difficulty })}
+                items={[
+                  { value: 'easy', label: 'Dễ' },
+                  { value: 'medium', label: 'Trung bình' },
+                  { value: 'hard', label: 'Khó' },
+                  { value: 'mixed', label: 'Trộn đều 3 mức' },
+                ]}
+              />
             </label>
 
-            <label className="block">
+            <label className="block min-w-0">
               <span className={labelCls}>Số câu (tối đa {MAX_QUESTIONS})</span>
               <input
                 type="number"
@@ -290,7 +358,9 @@ export const QuestionGeneratorTab = () => {
               </div>
               <p className="text-sm text-slate-500 mt-0.5 break-words">
                 Từ tài liệu "{r.docTitle}"
+                {r.deptCount > 0 ? ` · ${r.deptCount} phòng ban` : ''}
                 {r.rejected > 0 ? ` · AI viết ${r.rejected} câu không hợp lệ nên đã bị loại` : ''}
+                {r.failed?.length > 0 ? ` · AI soạn lỗi cho: ${r.failed.join(', ')} (hãy tạo lại riêng các phòng này)` : ''}
               </p>
             </div>
             <button
