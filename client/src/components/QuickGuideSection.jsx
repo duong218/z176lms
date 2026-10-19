@@ -1,6 +1,9 @@
-import { UserCheck, ListChecks, PenTool, Send, ArrowRight, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
+import { UserCheck, ListChecks, PenTool, Send, ArrowRight, HelpCircle, Images, PlayCircle } from 'lucide-react';
+import { FirstTimeGuideModal } from './FirstTimeGuideModal';
 
 export const QuickGuideSection = ({ onStartExam }) => {
+  const [guide, setGuide] = useState(null); // null | 'guide' | 'demo'
   const steps = [
     {
       number: '1',
@@ -50,6 +53,22 @@ export const QuickGuideSection = ({ onStartExam }) => {
               <p className="text-sm text-[#334155]">4 bước đơn giản để hoàn thành bài thi trực tuyến</p>
             </div>
           </div>
+        </div>
+
+        {/* Lần đầu vào thi: xem hướng dẫn có hình hoặc thi thử 3 câu để làm quen */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={() => setGuide('guide')}
+            className="min-h-[56px] px-4 bg-[#008BC5] hover:bg-[#007ba1] text-white font-bold text-base rounded-lg shadow-z176 flex items-center justify-center gap-2"
+          >
+            <Images className="w-5 h-5" /> Xem hướng dẫn có hình
+          </button>
+          <button
+            onClick={() => setGuide('demo')}
+            className="min-h-[56px] px-4 bg-white hover:bg-green-50 text-[#15803D] border-2 border-[#22C55E] font-bold text-base rounded-lg flex items-center justify-center gap-2"
+          >
+            <PlayCircle className="w-5 h-5" /> Thi thử 3 câu (không tính điểm)
+          </button>
         </div>
 
         {/* Steps Flow Grid */}
@@ -112,6 +131,8 @@ export const QuickGuideSection = ({ onStartExam }) => {
           </button>
         </div>
       </div>
+
+      <FirstTimeGuideModal isOpen={guide !== null} startWith={guide ?? 'guide'} onClose={() => setGuide(null)} onStartExam={onStartExam} />
     </section>
   );
 };
