@@ -81,6 +81,15 @@ const ACTION_LABELS = {
   // đã upload tạm (vd ảnh câu hỏi) nhưng không được gắn vào bản ghi nào
   // trong 1 khoảng thời gian, tránh rác tồn đọng trên storage.
   UPLOAD_TMP_CLEANUP: 'Dọn dẹp file tạm chưa sử dụng',
+  // Trợ lý AI (ai-assistant.controller.js)
+  AI_GENERATE_QUESTIONS: 'AI soạn câu hỏi',
+  UPDATE_AI_SETTINGS: 'Cập nhật cấu hình Trợ lý AI',
+  // Sao lưu tự động (backup.scheduler.js)
+  BACKUP_AUTO_CREATE: 'Tự động tạo bản sao lưu',
+  BACKUP_AUTO_FAILED: 'Sao lưu tự động thất bại',
+  // Tài khoản / nhân viên
+  ACCOUNT_PURGE_AUTO: 'Tự động xóa tài khoản đã khóa quá hạn',
+  UPDATE_EMPLOYEE_DEPARTMENTS: 'Cập nhật phòng ban của nhân viên',
 };
 
 // Các action mang tính cảnh báo/nhạy cảm — hiển thị nhấn mạnh bằng màu vàng-cam
@@ -94,6 +103,7 @@ const EMPHASIZED_ACTIONS = new Set([
   'ARCHIVE_EXAM',
   'AUTO_SUBMIT_EXAM_ATTEMPT',
   'BACKUP_RESTORE',
+  'BACKUP_AUTO_FAILED',
   'DELETE_QUESTION',
   'BULK_DELETE_QUESTIONS',
   'BULK_MOVE_QUESTIONS_BLOCKED',
@@ -113,6 +123,7 @@ const RESOURCE_TYPE_OPTIONS = [
   { value: 'Topic', label: 'Chủ đề' },
   { value: 'Department', label: 'Phòng ban' },
   { value: 'Backup', label: 'Sao lưu & phục hồi' },
+  { value: 'AiSetting', label: 'Trợ lý AI' },
 ];
 
 function getActionLabel(action) {
