@@ -506,7 +506,7 @@ function App() {
             <QuickGuideSection onStartExam={handleOpenExam} />
 
             {/* Tra cứu kết quả thi */}
-            <ResultsLookupSection />
+            <ResultsLookupSection onLogin={() => setIsLoginOpen(true)} />
 
             {/* Liên hệ & Hỗ trợ kỹ thuật */}
             <ContactSection />

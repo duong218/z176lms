@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Award, Search, CheckCircle2, XCircle, Loader2, ChevronDown, BarChart3, Trophy } from 'lucide-react';
+import { Award, Search, CheckCircle2, XCircle, Loader2, ChevronDown, BarChart3, Trophy, LogIn, AlertTriangle } from 'lucide-react';
 import { fetchPublicResultsByDepartment, lookupPublicResult } from '../services/report.service';
 
 const VISIBLE_DEPT_COUNT = 5;
+const MAX_PUBLIC_RESULTS = 5; // tra cứu công khai chỉ hiện các kết quả gần nhất, xem đầy đủ phải đăng nhập
 
-export const ResultsLookupSection = () => {
+export const ResultsLookupSection = ({ onLogin }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState(null); // null = chưa tìm, [] = tìm nhưng rỗng
   const [searching, setSearching] = useState(false);
@@ -98,7 +99,7 @@ export const ResultsLookupSection = () => {
         {searchResults !== null && !searchError && (
           <div className="space-y-2">
             <div className="text-sm font-semibold text-[#334155] px-1">
-              Kết quả tra cứu ({searchResults.length})
+              Kết quả tra cứu ({Math.min(searchResults.length, MAX_PUBLIC_RESULTS)}{searchResults.length > MAX_PUBLIC_RESULTS ? ' kết quả gần nhất' : ''})
             </div>
 
             {searchResults.length === 0 ? (
@@ -107,7 +108,7 @@ export const ResultsLookupSection = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                {searchResults.map((item, idx) => (
+                {searchResults.slice(0, MAX_PUBLIC_RESULTS).map((item, idx) => (
                   <div
                     key={`${item.employeeCode || item.fullname}-${idx}`}
                     className="bg-white border border-slate-200 rounded-[10px] p-4 shadow-z176 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
@@ -146,6 +147,19 @@ export const ResultsLookupSection = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {searchResults.length > MAX_PUBLIC_RESULTS && (
+              <div role="status" className="bg-[#FFFBEB] border border-[#F6AD37]/40 rounded-[10px] p-3 flex items-start gap-2 text-sm text-[#0F172A]">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-[#F6AD37]" />
+                <span className="flex-1">
+                  Chỉ hiển thị {MAX_PUBLIC_RESULTS} kết quả gần nhất. Vui lòng{' '}
+                  <button type="button" onClick={onLogin} className="inline-flex items-center gap-1 font-bold text-[#008BC5] underline">
+                    <LogIn className="w-4 h-4" /> ĐĂNG NHẬP
+                  </button>{' '}
+                  để xem chi tiết toàn bộ kết quả.
+                </span>
               </div>
             )}
           </div>
