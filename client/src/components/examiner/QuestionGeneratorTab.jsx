@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, Loader2, AlertCircle, AlertTriangle, Download, CheckCircle2, FileText } from 'lucide-react';
 import { SelectBox } from '../Select';
+import { useConfirm } from '../ConfirmDialog';
 import { fetchTopics, fetchDepartments, fetchExamProposals } from '../../services/examiner.service';
 import { fetchStudyDocuments } from '../../services/study-document.service';
 import { fetchAiStatus, downloadBase64File } from '../../services/ai-assistant.service';
@@ -23,6 +24,7 @@ const labelCls = 'block text-sm font-semibold text-[#0F172A] mb-1';
  * rồi dùng chức năng Import ở mục Ngân hàng câu hỏi. Không ghi thẳng vào ngân hàng câu hỏi.
  */
 export const QuestionGeneratorTab = () => {
+  const confirmAction = useConfirm();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [aiEnabled, setAiEnabled] = useState(true);
@@ -74,11 +76,33 @@ export const QuestionGeneratorTab = () => {
   const toggleDept = (id) =>
     set({ departmentIds: form.departmentIds.includes(id) ? form.departmentIds.filter((x) => x !== id) : [...form.departmentIds, id] });
 
+  // Chủ đề đã gắn cho tài liệu ở mục Tài liệu ôn tập (tạo chủ đề ở đó là đã tạo luôn chủ đề trong hệ thống)
+  const selectedDoc = documents.find((d) => d._id === form.documentId);
+  const docTopicId = String(selectedDoc?.topicId?._id ?? selectedDoc?.topicId ?? '');
+  const docTopic = topics.find((t) => String(t._id) === docTopicId);
+  const differsFromDoc = Boolean(docTopic && form.topicId && form.topicId !== docTopicId);
+
+  // Đổi sang chủ đề khác chủ đề của tài liệu → hỏi xác nhận để khỏi lỡ tạo thừa chủ đề
+  const handleTopicChange = async (topicId) => {
+    if (docTopic && topicId && topicId !== docTopicId) {
+      const ok = await confirmAction(
+        `Tài liệu này thuộc chủ đề "${docTopic.name}" (đã tạo ở mục Tài liệu ôn tập). Nếu đổi, câu hỏi sẽ được import vào ${
+          topicId === NEW_TOPIC ? 'một chủ đề mới' : 'chủ đề khác'
+        }, không nằm trong "${docTopic.name}".`,
+        { title: 'Đổi chủ đề của câu hỏi?', confirmLabel: 'Vẫn đổi', cancelLabel: 'Giữ chủ đề cũ', danger: false },
+      );
+      if (!ok) return;
+    }
+    set({ topicId });
+  };
+
   // Chọn tài liệu → chỉ gợi ý sẵn phạm vi theo tài liệu đó (vẫn đổi được). Chủ đề do người tạo đề tự chọn / đặt mới.
   const handleDocumentChange = (documentId) => {
     const doc = documents.find((d) => d._id === documentId);
-    const patch = { documentId };
+    const patch = { documentId, newTopicName: '' };
     if (doc) {
+      const tid = String(doc.topicId?._id ?? doc.topicId ?? '');
+      patch.topicId = topics.some((t) => String(t._id) === tid) ? tid : ''; // tự điền chủ đề của tài liệu
       if (doc.scope === 'DepartmentSpecific' && doc.departmentId) {
         patch.scope = 'department';
         patch.departmentIds = [doc.departmentId._id || doc.departmentId];
@@ -184,7 +208,7 @@ export const QuestionGeneratorTab = () => {
               <span className={labelCls}>Chủ đề của câu hỏi</span>
               <SelectBox
                 value={form.topicId}
-                onChange={(topicId) => set({ topicId })}
+                onChange={handleTopicChange}
                 items={[
                   { value: '', label: '-- Chọn chủ đề --' },
                   { value: NEW_TOPIC, label: '+ Chủ đề mới...' },
@@ -208,6 +232,16 @@ export const QuestionGeneratorTab = () => {
                   onChange={(e) => set({ newTopicName: e.target.value })}
                   placeholder="Nhập tên chủ đề mới, ví dụ: Hội thi nghiệp vụ giỏi tháng 11"
                 />
+              )}
+              {selectedDoc && !docTopic && (
+                <p className="text-sm text-[#B45309] mt-1">
+                  Tài liệu này chưa có chủ đề (hoặc chủ đề đã bị tắt). Hãy chọn một chủ đề có sẵn hoặc tạo chủ đề mới.
+                </p>
+              )}
+              {differsFromDoc && (
+                <p className="text-sm text-[#B45309] mt-1">
+                  Khác chủ đề của tài liệu (“{docTopic.name}”). Câu hỏi sẽ import vào chủ đề bạn chọn ở đây.
+                </p>
               )}
             </label>
 
@@ -368,6 +402,7 @@ export const QuestionGeneratorTab = () => {
               </div>
               <p className="text-sm text-slate-500 mt-0.5 break-words">
                 Từ tài liệu "{r.docTitle}"
+                {` · Soạn xong lúc ${new Date(r.id).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}`}
                 {r.deptCount > 0 ? ` · ${r.deptCount} phòng ban` : ''}
                 {r.rejected > 0 ? ` · AI viết ${r.rejected} câu không hợp lệ nên đã bị loại` : ''}
                 {r.failed?.length > 0 ? ` · AI soạn lỗi cho: ${r.failed.join(', ')} (hãy tạo lại riêng các phòng này)` : ''}
