@@ -6,7 +6,7 @@
  */
 
 import JSZip from 'jszip';
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 export const DIFFICULTY_LABEL = { easy: 'Dễ', medium: 'Trung bình', hard: 'Khó' };
 
@@ -97,17 +97,27 @@ const XLSX_HEADERS = [
   'Đáp án đúng',
 ];
 
+// Độ rộng cột theo file mẫu Mau_Import_Cau_Hoi_Z176.xlsx
+const XLSX_WIDTHS = [18, 50, 10, 14, 18, 12, 12, 12, 28, 28, 28, 28, 20, 20, 20, 20, 12];
+const BORDER = { style: 'thin', color: { argb: 'FFD9D9D9' } };
+const BORDERS = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
+
 /**
  * @param {{topicName:string, deptCode?:string, deptName?:string, sourceTitle:string}} meta
- * @returns {Buffer}
+ * @returns {Promise<Buffer>}
  */
-export function buildQuestionsXlsx(questions, { topicName, deptCode = '', deptName = '', sourceTitle }) {
-  const rows = questions.map((q) => {
+export async function buildQuestionsXlsx(questions, { topicName, deptCode = '', deptName = '', sourceTitle }) {
+  const wb = new ExcelJS.Workbook();
+  // Sheet dữ liệu PHẢI đứng đầu: bộ import đọc sheet đầu tiên
+  const ws = wb.addWorksheet('Câu hỏi', { views: [{ state: 'frozen', ySplit: 1 }] });
+  ws.columns = XLSX_HEADERS.map((header, i) => ({ header, width: XLSX_WIDTHS[i] }));
+
+  questions.forEach((q) => {
     // Mỗi câu có thể mang phòng ban riêng (tạo cho nhiều phòng ban trong 1 file); không có thì dùng phòng ban chung của file
     const code = q.deptCode ?? deptCode;
     const isDept = Boolean(code);
     const opts = Array.from({ length: 8 }, (_, i) => q.options[i] ?? '');
-    return [
+    ws.addRow([
       topicName,
       q.content,
       isDept ? 'riêng' : 'chung',
@@ -118,19 +128,36 @@ export function buildQuestionsXlsx(questions, { topicName, deptCode = '', deptNa
       DIFFICULTY_LABEL[q.difficulty].toLowerCase(),
       ...opts,
       String(q.correct),
-    ];
+    ]);
   });
-  const wb = XLSX.utils.book_new();
-  // Sheet dữ liệu PHẢI đứng đầu: bộ import đọc sheet đầu tiên
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([XLSX_HEADERS, ...rows]), 'Câu hỏi');
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.aoa_to_sheet([
-      ['LƯU Ý'],
-      [`Câu hỏi do AI soạn từ tài liệu "${sourceTitle}". Hãy đọc lại và sửa nội dung, đáp án trước khi import.`],
-      ['Giữ nguyên tên cột và các giá trị như "chung/riêng", "lý thuyết", "chọn 1", "dễ/trung bình/khó" khi sửa.'],
-    ]),
-    'GhiChu',
-  );
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+  ws.getRow(1).height = 26;
+  ws.eachRow((row, rowNumber) => {
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cell.border = BORDERS;
+      if (rowNumber === 1) {
+        cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF008BC5' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      } else {
+        cell.font = { name: 'Arial', size: 10.5 };
+        cell.alignment = { vertical: 'top', wrapText: true };
+      }
+    });
+  });
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: XLSX_HEADERS.length } };
+
+  const note = wb.addWorksheet('GhiChu');
+  note.getColumn(1).width = 110;
+  [
+    'LƯU Ý',
+    `Câu hỏi do AI soạn từ tài liệu "${sourceTitle}". Hãy đọc lại và sửa nội dung, đáp án trước khi import.`,
+    'Giữ nguyên tên cột và các giá trị như "chung/riêng", "lý thuyết", "chọn 1", "dễ/trung bình/khó" khi sửa.',
+  ].forEach((t, i) => {
+    const cell = note.addRow([t]).getCell(1);
+    cell.font = { name: 'Arial', size: i === 0 ? 12 : 10.5, bold: i === 0 };
+    cell.alignment = { wrapText: true, vertical: 'top' };
+  });
+
+  return Buffer.from(await wb.xlsx.writeBuffer());
 }

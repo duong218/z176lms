@@ -64,5 +64,5 @@ export function downloadBase64File({ fileBase64, mimeType, fileName }) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000); // thu hồi ngay có thể làm trình duyệt hủy tải
 }

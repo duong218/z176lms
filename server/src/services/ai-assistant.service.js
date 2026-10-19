@@ -607,7 +607,7 @@ export async function generateQuestionFile(input = {}) {
 
   const meta = { topicName: topic.name, deptCode: '', deptName: '', sourceTitle: doc.title };
   const buffer =
-    format === 'docx' ? await buildQuestionsDocx(questions, meta) : buildQuestionsXlsx(questions, meta);
+    format === 'docx' ? await buildQuestionsDocx(questions, meta) : await buildQuestionsXlsx(questions, meta);
   const stamp = new Date().toISOString().slice(0, 10);
 
   return {
