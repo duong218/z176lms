@@ -9,11 +9,19 @@
   }
   
   body {
-    font-size: 16px;
+    font-size: 1rem; /* theo rem để nút Cỡ chữ (data-text-size) có tác dụng */
     line-height: 1.6;
     margin: 0;
     padding: 0;
   }
+}
+
+/* Cỡ chữ người dùng chọn (nút Aa ở Header). Tailwind tính theo rem nên đổi font-size gốc là cả giao diện to lên.
+   Điện thoại (<640px) giới hạn ở mức Lớn để không vỡ bố cục. */
+html[data-text-size="1"] { font-size: 112.5%; }
+html[data-text-size="2"] { font-size: 125%; }
+@media (max-width: 639px) {
+  html[data-text-size="2"] { font-size: 112.5%; }
 }
 
 /* Custom shadow constraint: 0px 1px 3px rgba(15,23,42,0.08) */

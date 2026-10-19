@@ -1085,9 +1085,35 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                   </button>
                 )}
 
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-[#0F172A] text-white font-bold font-mono text-base rounded-md shrink-0">
-                  <Clock className="w-4 h-4 text-[#008BC5]" />
-                  <span>{formatTimer(examSecondsLeft)}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Cỡ chữ câu hỏi — đặt cạnh đồng hồ; ẩn khi đang xem lưới danh sách câu */}
+                  {!showQuestionGrid && (
+                    <div className="flex items-center gap-1 text-[#334155]" role="group" aria-label="Cỡ chữ câu hỏi">
+                      <button
+                        type="button"
+                        onClick={() => changeFontLevel(-1)}
+                        disabled={fontLevel === 0}
+                        aria-label="Giảm cỡ chữ"
+                        className="h-10 min-w-[40px] px-2 rounded-lg border border-slate-300 bg-white font-bold text-sm text-[#0F172A] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        A−
+                      </button>
+                      <span className="sr-only sm:not-sr-only sm:min-w-[52px] text-center text-xs font-medium" aria-live="polite">{fontSizes.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => changeFontLevel(1)}
+                        disabled={fontLevel === FONT_LEVELS.length - 1}
+                        aria-label="Tăng cỡ chữ"
+                        className="h-10 min-w-[40px] px-2 rounded-lg border border-slate-300 bg-white font-bold text-lg text-[#0F172A] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        A+
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-[#0F172A] text-white font-bold font-mono text-base rounded-md">
+                    <Clock className="w-4 h-4 text-[#008BC5]" />
+                    <span>{formatTimer(examSecondsLeft)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -1179,28 +1205,6 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                   onCopy={handleBlockCopy}
                   style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
                 >
-
-                  <div className="flex items-center justify-end gap-2 text-sm text-[#334155]" role="group" aria-label="Cỡ chữ câu hỏi">
-                    <button
-                      type="button"
-                      onClick={() => changeFontLevel(-1)}
-                      disabled={fontLevel === 0}
-                      aria-label="Giảm cỡ chữ"
-                      className="min-touch-target px-3 rounded-lg border border-slate-300 bg-white font-bold text-base text-[#0F172A] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      A−
-                    </button>
-                    <span className="min-w-[64px] text-center font-medium" aria-live="polite">{fontSizes.label}</span>
-                    <button
-                      type="button"
-                      onClick={() => changeFontLevel(1)}
-                      disabled={fontLevel === FONT_LEVELS.length - 1}
-                      aria-label="Tăng cỡ chữ"
-                      className="min-touch-target px-3 rounded-lg border border-slate-300 bg-white font-bold text-xl text-[#0F172A] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      A+
-                    </button>
-                  </div>
 
                   <div
                     className="text-base sm:text-lg font-bold text-[#0F172A] leading-snug"

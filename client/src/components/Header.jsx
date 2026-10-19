@@ -3,6 +3,7 @@ import { Home, FileText, Award, CheckSquare, PhoneCall, User, Menu, X, LogOut, S
 import { UnitLogoDisplay } from './UnitLogoDisplay';
 import { NotificationBell } from './NotificationBell';
 import { useScrollLock } from '../hooks/useScrollLock';
+import { useTextSize, TEXT_SIZES } from '../hooks/useTextSize';
 
 const ROLE_LABELS = {
   admin: 'Quản trị viên',
@@ -81,6 +82,7 @@ export const Header = ({
     setDrawerOpen(false);
   };
 
+  const [textSize, setTextSize] = useTextSize(currentUser?.username);
   const roleLabel = currentUser?.roleCode
     ? ROLE_LABELS[currentUser.roleCode] || currentUser.roleName || currentUser.roleCode
     : '';
@@ -133,6 +135,16 @@ export const Header = ({
             dần theo chiều rộng: role label chỉ hiện từ xl, các nút phụ
             (đổi mật khẩu/đăng xuất) rút còn icon cho tới xl mới hiện chữ. */}
         <div className="hidden lg:flex items-center gap-1.5 xl:gap-2 shrink-0">
+          {/* Cỡ chữ: bấm để đổi vòng Vừa → Lớn → Rất lớn */}
+          <button
+            onClick={() => setTextSize((textSize + 1) % TEXT_SIZES.length)}
+            className="flex items-center gap-1.5 px-2.5 py-2 text-slate-200 hover:text-white hover:bg-slate-700 rounded-lg border border-slate-700 whitespace-nowrap shrink-0 min-touch-target"
+            title={`Cỡ chữ: ${TEXT_SIZES[textSize]} (bấm để đổi)`}
+            aria-label={`Cỡ chữ hiện tại: ${TEXT_SIZES[textSize]}. Bấm để đổi cỡ chữ`}
+          >
+            <span className="font-bold text-lg leading-none">A<span className="text-sm">a</span></span>
+            <span className="hidden xl:inline text-sm font-medium">{TEXT_SIZES[textSize]}</span>
+          </button>
           {authLoading ? (
             <div className="w-6 h-6 border-2 border-slate-600 border-t-[#008BC5] rounded-full animate-spin" />
           ) : currentUser ? (
@@ -279,6 +291,22 @@ export const Header = ({
 
             {/* Khối tài khoản ghim đáy: luôn thấy Đổi mật khẩu / Đăng xuất dù cửa sổ thấp */}
             <div className="shrink-0 p-4 border-t border-[#334155] space-y-2">
+                {/* Cỡ chữ (điện thoại chỉ có Vừa/Lớn) */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-300 shrink-0">Cỡ chữ</span>
+                  <div className="flex flex-1 gap-1.5" role="group" aria-label="Chọn cỡ chữ">
+                    {TEXT_SIZES.map((label, i) => (
+                      <button
+                        key={label}
+                        onClick={() => setTextSize(i)}
+                        aria-pressed={textSize === i}
+                        className={`flex-1 min-h-[44px] rounded-lg border text-sm font-bold ${i === 2 ? 'max-sm:hidden' : ''} ${textSize === i ? 'bg-[#008BC5] border-[#008BC5] text-white' : 'border-slate-600 text-slate-200 hover:bg-[#334155]'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {currentUser ? (
                   <>
                     {/* User info in drawer */}
