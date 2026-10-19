@@ -9,6 +9,7 @@ import { OverviewTab } from '../../components/examiner/OverviewTab';
 import { StudyDocumentTab } from '../../components/examiner/StudyDocumentTab';
 import { QuestionAnalysisTab } from '../../components/examiner/QuestionAnalysisTab';
 import { QuestionGeneratorTab } from '../../components/examiner/QuestionGeneratorTab';
+import { GenerationBadge } from '../../components/examiner/GenerationProgress';
 import { LayoutDashboard, BookOpen, FolderOpen, Building, FileSignature, Library, BarChart3, Sparkles } from 'lucide-react';
 
 // Xuất ra ngoài để App.jsx dùng lại khi truyền xuống Header.jsx (hiển thị
@@ -71,6 +72,7 @@ export const ExaminerDashboard = ({ currentUser, activeTab, onTabChange, highlig
         {activeTab === 'proposals' && <ExamProposalTab highlightExam={highlightExam} onHighlightConsumed={onHighlightConsumed} />}
         {activeTab === 'materials' && <StudyDocumentTab />}
         {activeTab === 'ai-questions' && <QuestionGeneratorTab />}
+        {activeTab !== 'ai-questions' && <GenerationBadge onClick={() => onTabChange('ai-questions')} />}
       </DashboardShell>
     </div>
   );

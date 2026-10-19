@@ -18,9 +18,10 @@ import { LoginModal } from './components/LoginModal';
 import { ExamModal } from './components/ExamModal';
 import { SessionRevokedModal } from './components/SessionRevokedModal';
 import { ToastProvider } from './components/ToastContext';
-import { ConfirmProvider } from './components/ConfirmDialog';
+import { ConfirmProvider, useConfirm } from './components/ConfirmDialog';
 import { fetchMe, logoutUser, getAccessToken } from './services/auth.service';
 import { SESSION_EXPIRED_EVENT } from './services/api';
+import { hasPending, resetGeneration, claimOwner } from './services/question-generation.store';
 import { fetchMyExam } from './services/exam-attempt.service';
 import { AdminDashboard, ADMIN_DASHBOARD_TABS } from './pages/admin/AdminDashboard';
 import { ExaminerDashboard, EXAMINER_DASHBOARD_TABS } from './pages/examiner/ExaminerDashboard';
@@ -95,6 +96,7 @@ function App() {
   // Khác với Toast (có thể lờ đi/tự ẩn), modal này CHẶN thao tác — người dùng
   // bắt buộc phải bấm "Đăng nhập lại" mới đóng được, theo đúng yêu cầu: tránh
   // để người dùng tiếp tục thao tác trên phiên đã không còn hợp lệ.
+  const confirmAction = useConfirm();
   const [sessionRevokedMessage, setSessionRevokedMessage] = useState(null);
 
   // Auto-login: kiểm tra accessToken khi mount
@@ -291,7 +293,20 @@ function App() {
     }
   };
 
+  // Người tạo đề còn câu hỏi AI chưa tải / đang soạn → hỏi lại trước khi đăng xuất
+  useEffect(() => { claimOwner(currentUser?.username); }, [currentUser?.username]);
+
   const handleLogout = async () => {
+    if (
+      hasPending() &&
+      !(await confirmAction('Bạn còn câu hỏi AI chưa tải về (hoặc đang soạn). Đăng xuất sẽ mất toàn bộ.', {
+        title: 'Chưa tải câu hỏi AI',
+        confirmLabel: 'Vẫn đăng xuất',
+        cancelLabel: 'Quay lại tải',
+      }))
+    )
+      return;
+    resetGeneration();
     await logoutUser();
     setCurrentUser(null);
     // Đăng xuất khỏi dashboard thì về lại trang chủ, tránh màn hình trắng

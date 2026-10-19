@@ -3,10 +3,12 @@ import { Sparkles, Loader2, AlertCircle, AlertTriangle, Download, CheckCircle2, 
 import { SelectBox } from '../Select';
 import { fetchTopics, fetchDepartments, fetchExamProposals } from '../../services/examiner.service';
 import { fetchStudyDocuments } from '../../services/study-document.service';
-import { fetchAiStatus, generateQuestionFile, downloadBase64File } from '../../services/ai-assistant.service';
+import { fetchAiStatus, downloadBase64File } from '../../services/ai-assistant.service';
+
+import { startGeneration, markSeen, markDownloaded, clearGenerationError, useGeneration } from '../../services/question-generation.store';
+import { GenerationProgress } from './GenerationProgress';
 
 const MAX_QUESTIONS = 30;
-const MAX_HISTORY = 5;
 const MAX_DEPTS = 12;
 const NEW_TOPIC = '__new__';
 const FORMAT_LABEL = { docx: 'Word', xlsx: 'Excel' };
@@ -40,9 +42,9 @@ export const QuestionGeneratorTab = () => {
     format: 'docx',
     instructions: '',
   });
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
-  const [results, setResults] = useState([]); // kết quả các lần tạo trong phiên này (mới nhất trước)
+  const { generating, results, error: genError } = useGeneration(); // nằm trong store → đổi tab không mất
+  useEffect(() => { markSeen(); }, [results, genError, generating]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +69,8 @@ export const QuestionGeneratorTab = () => {
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const usableDepts = departments.filter((d) => d.code); // phòng ban chưa có mã thì không import được
   const allSelected = usableDepts.length > 0 && form.departmentIds.length === usableDepts.length;
+  const deptN = form.departmentIds.length;
+  const perDept = form.scope === 'department' && deptN > 0;
   const toggleDept = (id) =>
     set({ departmentIds: form.departmentIds.includes(id) ? form.departmentIds.filter((x) => x !== id) : [...form.departmentIds, id] });
 
@@ -101,9 +105,9 @@ export const QuestionGeneratorTab = () => {
     if (!Number.isInteger(count) || count < 1 || count > MAX_QUESTIONS) {
       return setError(`Số câu phải từ 1 đến ${MAX_QUESTIONS}.`);
     }
-    setGenerating(true);
-    try {
-      const data = await generateQuestionFile({
+    clearGenerationError();
+    startGeneration(
+      {
         documentId: form.documentId,
         ...(isNewTopic ? { topicName: newTopicName } : { topicId: form.topicId }),
         scope: form.scope,
@@ -112,14 +116,13 @@ export const QuestionGeneratorTab = () => {
         count,
         format: form.format,
         instructions: form.instructions,
-      });
-      const docTitle = documents.find((d) => d._id === form.documentId)?.title || '';
-      setResults((prev) => [{ ...data, id: Date.now(), docTitle }, ...prev].slice(0, MAX_HISTORY));
-    } catch (err) {
-      setError(err?.message || 'Không thể tạo câu hỏi, vui lòng thử lại.');
-    } finally {
-      setGenerating(false);
-    }
+      },
+      {
+        docTitle: documents.find((d) => d._id === form.documentId)?.title || '',
+        deptCount: form.scope === 'department' ? form.departmentIds.length : 0,
+        count,
+      },
+    );
   };
 
   if (loading) {
@@ -274,7 +277,7 @@ export const QuestionGeneratorTab = () => {
             </label>
 
             <label className="block min-w-0">
-              <span className={labelCls}>Số câu (tối đa {MAX_QUESTIONS})</span>
+              <span className={labelCls}>{perDept ? 'Số câu MỖI phòng ban' : 'Số câu'} (tối đa {MAX_QUESTIONS})</span>
               <input
                 type="number"
                 min={1}
@@ -283,6 +286,11 @@ export const QuestionGeneratorTab = () => {
                 value={form.count}
                 onChange={(e) => set({ count: e.target.value })}
               />
+              {perDept && (
+                <p className="text-sm font-semibold text-[#B45309] mt-1">
+                  {deptN} phòng ban × {Number(form.count) || 0} câu = {deptN * (Number(form.count) || 0)} câu tổng cộng
+                </p>
+              )}
             </label>
           </div>
 
@@ -330,10 +338,10 @@ export const QuestionGeneratorTab = () => {
             </span>
           </div>
 
-          {error && (
+          {(error || genError) && (
             <div role="alert" className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg flex items-center gap-2 text-sm text-[#0F172A]">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+              <span>{error || genError}</span>
             </div>
           )}
 
@@ -343,10 +351,12 @@ export const QuestionGeneratorTab = () => {
             className="w-full sm:w-auto px-6 py-3 bg-[#008BC5] disabled:bg-slate-300 text-white font-bold rounded-lg flex items-center justify-center gap-2 min-touch-target"
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {generating ? 'AI đang soạn câu hỏi (có thể mất 30–60 giây)...' : 'Tạo file câu hỏi'}
+            {generating ? 'Đang soạn...' : perDept ? `Tạo file ${deptN * (Number(form.count) || 0)} câu hỏi` : 'Tạo file câu hỏi'}
           </button>
         </div>
       </div>
+
+      <GenerationProgress />
 
       {results.map((r) => (
         <div key={r.id} className="bg-white rounded-xl shadow-z176 border border-slate-200 overflow-hidden">
@@ -364,13 +374,25 @@ export const QuestionGeneratorTab = () => {
               </p>
             </div>
             <button
-              onClick={() => downloadBase64File(r)}
+              onClick={() => {
+                downloadBase64File(r);
+                markDownloaded(r.id);
+              }}
               className="px-5 py-3 bg-[#008BC5] text-white font-bold rounded-lg flex items-center justify-center gap-2 min-touch-target shrink-0"
             >
               <Download className="w-4 h-4" />
               Tải file {FORMAT_LABEL[r.format]}
             </button>
           </div>
+
+          {!r.downloaded && (
+            <div role="status" className="mx-4 sm:mx-6 mb-4 p-3 bg-[#FFFBEB] border border-[#F6AD37]/40 rounded-lg flex items-start gap-2 text-sm text-[#0F172A]">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-[#F6AD37]" />
+              <span>
+                <b>Bạn chưa tải file này về.</b> Kết quả chỉ nằm trên trang này — tải lại trang (F5) hoặc đăng xuất sẽ mất. Hãy bấm "Tải file" trước khi rời đi.
+              </span>
+            </div>
+          )}
 
           <div className="px-4 sm:px-6 pb-4 space-y-3 border-t border-slate-100 pt-4">
             <div className="text-sm font-semibold text-slate-600 flex items-center gap-1.5">
