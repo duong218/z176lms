@@ -223,6 +223,8 @@ export const Header = ({
               </button>
             </div>
 
+            {/* Vùng cuộn: tab con + danh sách mục (khối tài khoản bên dưới được ghim, không cuộn) */}
+            <div className="flex-1 min-h-0 overflow-y-auto" data-lenis-prevent>
             {/* MỚI — Tab con của dashboard hiện tại (vd 4 tab của
                 AdminDashboard). Chỉ hiện khi variant='dashboard' VÀ trang đó
                 có truyền dashboardTabs xuống (hiện tại chỉ AdminDashboard làm
@@ -254,7 +256,7 @@ export const Header = ({
             )}
 
             {/* Menu Items strictly in order */}
-            <div className="p-4 flex-1 overflow-y-auto space-y-2" data-lenis-prevent>
+            <div className="p-4 space-y-2">
               {menuItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
@@ -272,7 +274,11 @@ export const Header = ({
                 );
               })}
 
-              <div className="pt-4 border-t border-[#334155] space-y-2">
+            </div>
+            </div>
+
+            {/* Khối tài khoản ghim đáy: luôn thấy Đổi mật khẩu / Đăng xuất dù cửa sổ thấp */}
+            <div className="shrink-0 p-4 border-t border-[#334155] space-y-2">
                 {currentUser ? (
                   <>
                     {/* User info in drawer */}
@@ -320,11 +326,10 @@ export const Header = ({
                     <span>Đăng nhập</span>
                   </button>
                 )}
-              </div>
             </div>
 
             {/* Drawer Footer */}
-            <div className="p-4 border-t border-[#334155] bg-[#0F172A] text-xs text-[#64748B] text-center">
+            <div className="shrink-0 p-3 border-t border-[#334155] bg-[#0F172A] text-xs text-[#64748B] text-center">
               Công ty Z176 - Bộ Quốc phòng
             </div>
           </div>
