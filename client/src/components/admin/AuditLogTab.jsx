@@ -341,7 +341,7 @@ export const AuditLogTab = () => {
   return (
     <div className="space-y-4">
       {/* Thanh tìm kiếm + nút mở bộ lọc — MỚI: animate-fade-in-up khi tab vừa tải xong */}
-      <div className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '0ms' }}>
+      <div className="relative z-30 animate-fade-in-up space-y-3" style={{ '--stagger-delay': '0ms' }}>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#64748B]" />
