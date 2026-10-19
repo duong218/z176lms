@@ -8,7 +8,8 @@ import { ExamProposalTab } from '../../components/examiner/ExamProposalTab';
 import { OverviewTab } from '../../components/examiner/OverviewTab';
 import { StudyDocumentTab } from '../../components/examiner/StudyDocumentTab';
 import { QuestionAnalysisTab } from '../../components/examiner/QuestionAnalysisTab';
-import { LayoutDashboard, BookOpen, FolderOpen, Building, FileSignature, Library, BarChart3 } from 'lucide-react';
+import { QuestionGeneratorTab } from '../../components/examiner/QuestionGeneratorTab';
+import { LayoutDashboard, BookOpen, FolderOpen, Building, FileSignature, Library, BarChart3, Sparkles } from 'lucide-react';
 
 // Xuất ra ngoài để App.jsx dùng lại khi truyền xuống Header.jsx (hiển thị
 // trong menu 3 gạch ở mobile), cùng pattern đã áp dụng cho ADMIN_DASHBOARD_TABS.
@@ -20,6 +21,7 @@ export const EXAMINER_DASHBOARD_TABS = [
   { id: 'departments', label: 'Bộ phận / Phòng ban', icon: <Building className="w-5 h-5" /> },
   { id: 'proposals', label: 'Đề xuất kỳ thi', icon: <FileSignature className="w-5 h-5" /> },
   { id: 'materials', label: 'Tài liệu ôn tập', icon: <Library className="w-5 h-5" /> },
+  { id: 'ai-questions', label: 'Tạo câu hỏi bằng AI', icon: <Sparkles className="w-5 h-5" /> },
 ];
 
 // activeTab/onTabChange giờ là props từ App.jsx (thay vì state nội bộ) — để
@@ -68,6 +70,7 @@ export const ExaminerDashboard = ({ currentUser, activeTab, onTabChange, highlig
         {activeTab === 'departments' && <DepartmentTab onViewQuestions={handleViewQuestionsByDepartment} />}
         {activeTab === 'proposals' && <ExamProposalTab highlightExam={highlightExam} onHighlightConsumed={onHighlightConsumed} />}
         {activeTab === 'materials' && <StudyDocumentTab />}
+        {activeTab === 'ai-questions' && <QuestionGeneratorTab />}
       </DashboardShell>
     </div>
   );

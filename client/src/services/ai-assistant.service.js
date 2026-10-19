@@ -42,3 +42,27 @@ export async function askLeaderAssistant(messages) {
   });
   return res.data; // { reply }
 }
+
+// === NGƯỜI TẠO ĐỀ — AI soạn câu hỏi từ tài liệu ôn tập, xuất file Word/Excel đúng khuôn import ===
+// Chủ đề / phạm vi / phòng ban / độ khó do người dùng chọn; server tự dựng file nên không sai cột, sai khuôn.
+export async function generateQuestionFile(payload) {
+  const res = await apiRequest('/ai-assistant/generate-questions', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return res.data; // { fileName, mimeType, fileBase64, count, requested, rejected, format, preview }
+}
+
+// Tải file base64 (do server trả về) xuống máy
+export function downloadBase64File({ fileBase64, mimeType, fileName }) {
+  const bytes = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

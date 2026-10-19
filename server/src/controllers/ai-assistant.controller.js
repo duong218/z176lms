@@ -46,3 +46,16 @@ export const leaderChat = asyncHandler(async (req, res) => {
   const data = await aiService.chatWithLeaderAssistant(req.body?.messages);
   res.json({ success: true, message: 'OK', code: 'AI_CHAT_OK', data });
 });
+
+// Người tạo đề: AI soạn câu hỏi từ tài liệu ôn tập, trả file Word/Excel (base64) để tải về kiểm tra rồi import
+export const generateQuestions = asyncHandler(async (req, res) => {
+  const data = await aiService.generateQuestionFile(req.body ?? {});
+  await writeAudit({
+    actorUserId: req.auth.userId,
+    action: 'AI_GENERATE_QUESTIONS',
+    resourceType: 'AiSetting',
+    metadata: { detail: `AI soạn ${data.count}/${data.requested} câu hỏi, xuất file ${data.format}` },
+    ipAddress: req.ip,
+  });
+  res.json({ success: true, message: 'OK', code: 'AI_GENERATE_OK', data });
+});
