@@ -95,8 +95,8 @@ export const AiSettingsTab = () => {
         <div className="p-3 bg-[#FFFBEB] border border-[#F6AD37]/40 rounded-lg flex items-start gap-2 text-sm text-[#0F172A]">
           <AlertTriangle className="w-5 h-5 shrink-0 text-[#F6AD37]" />
           <span>
-            Nội dung tài liệu sẽ được gửi tới dịch vụ AI bên ngoài. Bản demo chỉ dùng tài liệu mẫu, không dùng tài liệu nội bộ thật
-            (theo AGENT_RULES.md). Với free tier, nhà cung cấp có thể dùng dữ liệu để cải thiện mô hình.
+            Nội dung tài liệu sẽ được gửi tới dịch vụ AI bên ngoài. Bản demo chỉ dùng tài liệu mẫu, không dùng tài liệu nội bộ thật.
+            Với free tier, nhà cung cấp có thể dùng dữ liệu để cải thiện mô hình.
           </span>
         </div>
 
