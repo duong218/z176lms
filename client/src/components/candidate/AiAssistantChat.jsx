@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Loader2, AlertCircle, RotateCcw, X, Mic, Download } from 'lucide-react';
+import { Bot, Send, Loader2, AlertCircle, RotateCcw, X, Mic, Download, Volume2, VolumeX } from 'lucide-react';
 import { askAiAssistant } from '../../services/ai-assistant.service';
 import { splitTables } from '../../lib/mdTable';
+import { speechChunks } from '../../lib/speech';
 
 const SUGGESTIONS = [
   'Tóm tắt các kiến thức chính trong tài liệu của tôi',
@@ -20,6 +21,11 @@ const MIC_ERRORS = {
   'not-allowed': 'Bạn chưa cho phép dùng micro. Hãy bấm vào biểu tượng ổ khóa trên thanh địa chỉ để cho phép.',
   'no-speech': 'Không nghe thấy giọng nói, bạn thử lại nhé.',
 };
+
+// Đọc câu trả lời thành tiếng: API có sẵn của trình duyệt (speechSynthesis). Không hỗ trợ thì ẩn nút loa.
+// ponytail: dùng giọng tiếng Việt có sẵn của máy/trình duyệt, nên không đảm bảo mọi máy đọc được (vd Cốc Cốc trên Windows
+// có giọng "Microsoft An" trong danh sách nhưng báo synthesis-failed). Cần chắc chắn mọi máy -> đọc bằng TTS phía server.
+const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 // AI hay ghi nhầm nhãn khối (```json thay vì ```mindmap) nên nhận cả hai: khối json bắt đầu bằng {"name" cũng là sơ đồ.
 // Khối ```mermaid: AI viết thẳng cú pháp Mermaid cho mọi biểu đồ khác (cột, đường, tròn, quy trình, gantt...).
@@ -297,6 +303,7 @@ export const AiAssistantChat = ({
   const [error, setError] = useState('');
   const [diagram, setDiagram] = useState(null); // JSON sơ đồ đang xem ở panel
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(null); // chỉ số tin nhắn đang được loa đọc
   const recRef = useRef(null);
   const [docInfo, setDocInfo] = useState(null); // { used, skipped, skippedTitles } của câu trả lời gần nhất
   const listRef = useRef(null);
@@ -358,6 +365,35 @@ export const AiAssistantChat = ({
   };
 
   useEffect(() => () => recRef.current?.abort(), []); // rời trang thì tắt micro
+
+  // Bấm loa -> đọc tin nhắn đó (đang đọc đúng tin đó thì bấm lần nữa để dừng). Đọc tin khác thì tự dừng tin đang đọc.
+  const toggleSpeak = (i, content) => {
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    if (speaking === i) return setSpeaking(null);
+    const chunks = speechChunks(content);
+    setSpeaking(i);
+    chunks.forEach((text, n) => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'vi-VN';
+      // cancel() cũng bắn onend/onerror của tin cũ -> chỉ tắt trạng thái nếu vẫn là tin này
+      const done = () => setSpeaking((cur) => (cur === i ? null : cur));
+      u.onend = () => n === chunks.length - 1 && done();
+      u.onerror = (e) => {
+        if (['canceled', 'interrupted'].includes(e.error)) return;
+        setError(`Trình duyệt này không đọc được thành tiếng (lỗi: ${e.error}). Bạn thử mở bằng Edge hoặc Chrome, hoặc dùng điện thoại.`);
+        done();
+      };
+      synth.speak(u);
+    });
+  };
+  useEffect(() => {
+    if (!active) {
+      window.speechSynthesis?.cancel(); // đổi sang mục khác thì tắt loa
+      setSpeaking(null);
+    }
+  }, [active]);
+  useEffect(() => () => window.speechSynthesis?.cancel(), []); // rời trang thì tắt loa
 
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -422,6 +458,21 @@ export const AiAssistantChat = ({
               >
                 {m.role === 'user' ? m.content : renderContent(m.content, setDiagram)}
               </div>
+              {m.role === 'assistant' && canSpeak && speechChunks(m.content).length > 0 && (
+                <button
+                  onClick={() => toggleSpeak(i, m.content)}
+                  aria-label={speaking === i ? 'Dừng đọc' : 'Đọc câu trả lời thành tiếng'}
+                  aria-pressed={speaking === i}
+                  title={speaking === i ? 'Dừng đọc' : 'Nghe câu trả lời'}
+                  className={`shrink-0 px-3 flex items-center justify-center rounded-full border min-touch-target transition-colors focus-visible:ring-2 focus-visible:ring-[#008BC5] ${
+                    speaking === i
+                      ? 'bg-[#008BC5] border-[#008BC5] text-white'
+                      : 'bg-white border-slate-300 text-[#008BC5] hover:bg-[#EAF6FF]'
+                  }`}
+                >
+                  {speaking === i ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+              )}
             </div>
           ))}
 
