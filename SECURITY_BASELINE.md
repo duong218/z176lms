@@ -71,10 +71,16 @@
 - [x] **Rate Limiting thông minh (Keyed Rate Limiting)**:
   - Đăng nhập: Giới hạn theo cặp `${req.ip}|${username}` và chỉ đếm các lượt thất bại (`skipSuccessfulRequests: true`), chống brute-force mà không làm nghẽn người dùng khác trong cùng mạng LAN/NAT nhà máy.
   - Phòng thi: Giới hạn 100 req/phút theo **userId** cho các API làm bài thi, đảm bảo công bằng hạn ngạch cho từng thí sinh.
+  - Trợ lý AI: Giới hạn tần suất qua `aiChatRateLimiter` (theo `userId`), chống lạm dụng token/quota và quá tải dịch vụ.
 
----
+## 7. An toàn & Bảo mật Tích hợp Trợ lý AI (AI Safety & Data Isolation)
 
-## 7. Checklist kiểm tra trước khi Merge / Deploy
+- [x] **Cách ly dữ liệu tài liệu theo phân quyền**: Thí sinh gọi Trợ lý AI (`POST /api/ai-assistant/chat`) chỉ được trích xuất dữ liệu từ các tài liệu ôn tập thuộc phòng ban chính và phòng kiêm nhiệm `extraDepartmentIds` của chính mình; không thể truy vấn chéo tài liệu phòng ban khác.
+- [x] **Nguyên tắc "Do-Not-Touch" & Dữ liệu giả lập (Mock Data)**: Khi thử nghiệm dịch vụ AI bên ngoài, tuyệt đối chỉ sử dụng dữ liệu giả lập (mock data), không gửi thông tin thật, bí mật quân sự hay dữ liệu cá nhân cán bộ Nhà máy Z176 ra ngoài internet.
+- [x] **Kiểm duyệt hai bước khi sinh đề thi AI**: Câu hỏi do AI sinh ra (`generate-questions`) chỉ được xuất thành file tải về (Word/Excel) để Người ra đề kiểm tra, rà soát trước khi import thủ công; AI không có quyền ghi thẳng dữ liệu vào ngân hàng câu hỏi.
+- [x] **Giới hạn Context Window an toàn (`maxDocChars`)**: Giới hạn độ dài nội dung tài liệu trích xuất (mặc định 60.000 ký tự) nhằm tránh tràn context, kiểm soát chi phí token và ngăn ngừa tấn công prompt injection qua nội dung tệp.
+
+## 8. Checklist kiểm tra trước khi Merge / Deploy
 
 1. [x] Đã đối chiếu với danh sách nguyên tắc cứng trong `SKILLS.md` mục 4.
 2. [x] Không để lộ thông tin đáp án đúng (`isCorrect`) hoặc cấu trúc đề thi bí mật xuống client.

@@ -20,6 +20,7 @@ server/
     │   ├── db.js                                   # Thiết lập kết nối MongoDB qua Mongoose với auto reconnect & event loggers
     │   └── env.js                                  # Định nghĩa, validate và export cấu hình môi trường (port, JWT secrets/TTL, DB URI, CORS origin, Cloudinary, Google OAuth2...)
     ├── controllers/
+    │   ├── ai-assistant.controller.js              # Xử lý request Trợ lý AI: cấu hình API key/model/prompt (Admin), kiểm tra trạng thái bật/tắt (Public/Auth), hỏi đáp theo tài liệu phòng ban (Thí sinh), hỏi đáp trên số liệu báo cáo toàn công ty (Người duyệt đề), sinh câu hỏi trắc nghiệm ra file Word/Excel từ tài liệu ôn tập (Người ra đề)
     │   ├── analytics.controller.js                 # Xử lý request phân tích: chất lượng câu hỏi (Người ra đề), năng lực theo phòng ban (Người duyệt đề), dấu hiệu bất thường theo kỳ thi (Người duyệt đề), năng lực cá nhân (Thí sinh)
     │   ├── audit.controller.js                     # Xử lý request tra cứu nhật ký hệ thống (phân trang, lọc theo action/user/resource/thời gian)
     │   ├── auth.controller.js                      # Xử lý request xác thực: đăng nhập, refresh token, đăng xuất, lấy hồ sơ cá nhân (/me), đổi mật khẩu
@@ -37,12 +38,13 @@ server/
     │   └── user.controller.js                      # Xử lý request quản lý tài khoản: CRUD user, sửa phòng ban chính/kiêm nhiệm (updateDepartments), import Excel 2 bước (xử lý phòng ban kiêm nhiệm & tạo phòng thiếu kèm mã), xuất Excel credentials, phân role, khóa/mở, reset password
     ├── middlewares/
     │   ├── auth.middleware.js                       # Xác thực JWT (authenticate), kiểm tra tokenVersion phát hiện đăng nhập nơi khác, phân quyền role (requireRoleCodes)
-    │   ├── rate-limit.middleware.js                 # Giới hạn tần suất: loginRateLimiter (chống brute force), examAttemptRateLimiter (theo userId, chống spam phòng thi lớn)
+    │   ├── rate-limit.middleware.js                 # Giới hạn tần suất: loginRateLimiter (chống brute force), examAttemptRateLimiter (theo userId, chống spam phòng thi lớn), aiChatRateLimiter (chống spam gọi API AI)
     │   ├── require-password-changed.middleware.js   # Chặn truy cập API nghiệp vụ nếu tài khoản chưa đổi mật khẩu mặc định (mustChangePassword = true)
     │   └── upload.middleware.js                     # Multer middleware: uploadExcel (file .xlsx/.xls), uploadWord (file .docx), uploadQuestionImage (ảnh câu hỏi), uploadStudyDocument (tài liệu ôn tập)
     ├── models/
     │   ├── index.js                                # Re-export tất cả Schema Models và hằng số constants
     │   ├── constants.js                            # Enum constants: QUESTION_SCOPE, QUESTION_KIND, QUESTION_USAGE, ANSWER_TYPE, DIFFICULTY, EXAM_STATUS, ATTEMPT_TYPE, ATTEMPT_STATUS, DOCUMENT_SCOPE
+    │   ├── ai-setting.model.js                     # Schema cấu hình Trợ lý AI: key singleton 'default', isEnabled, baseUrl (chuẩn OpenAI/Gemini), apiKey, model, systemPrompt, maxDocChars, updatedBy
     │   ├── answer.model.js                         # Schema đáp án câu hỏi: nội dung, trạng thái đúng/sai, ref questionId
     │   ├── attempt-question.model.js               # Schema câu hỏi trong lượt thi: snapshot thứ tự câu hỏi và danh sách đáp án xáo riêng cho từng lượt
     │   ├── audit-log.model.js                      # Schema nhật ký hệ thống: hành động (action), người thực hiện, thời gian, metadata chi tiết
@@ -65,6 +67,7 @@ server/
     │   └── user.model.js                           # Schema tài khoản người dùng: username, passwordHash, roleId, isActive, lockedAt, lockUntil, mustChangePassword, tokenVersion
     ├── routes/
     │   ├── index.js                                # Router tổng: định tuyến tất cả sub-routers vào tiền tố /api/*
+    │   ├── ai-assistant.routes.js                  # Tuyến API Trợ lý AI: /settings (Admin), /status (Auth), /chat (Candidate), /leader-chat (Leader), /generate-questions (Examiner)
     │   ├── auth.routes.js                          # Tuyến API xác thực: /login, /refresh, /logout, /me, /change-password
     │   ├── backup.routes.js                        # Tuyến API sao lưu & phục hồi dữ liệu: danh sách, tạo backup, download, restore (Admin)
     │   ├── analytics.routes.js                     # Tuyến API phân tích: /questions (Examiner, Admin), /department-competency (Leader, Admin), /anomalies (Leader, Admin), /my-competency (Candidate)
@@ -86,21 +89,22 @@ server/
     │   ├── get-google-refresh-token.js             # Script tạo và lấy Google Drive Refresh Token OAuth2 lần đầu
     │   └── seed-cli.js                             # CLI script khởi tạo 4 vai trò mặc định và tài khoản Admin ban đầu
     ├── services/
-    │   ├── account-purge.service.js                # Logic xóa cứng tài khoản: quét user khóa >6 tháng (lockedAt), loại trừ user có vết lịch sử thi/audit
-    │   ├── account-purge.scheduler.js              # Cron scheduler: Tự động xóa cứng tài khoản khóa lâu lúc 04:00 hàng ngày (Asia/Ho_Chi_Minh)
     │   ├── abandoned-attempt.scheduler.js          # Cron scheduler: Tự động quét và nộp bài các lượt thi bị bỏ rơi (thí sinh rời tab >60s) mỗi 1 phút (* * * * *)
+    │   ├── account-purge.scheduler.js              # Cron scheduler: Tự động xóa cứng tài khoản khóa lâu lúc 04:00 hàng ngày (Asia/Ho_Chi_Minh)
+    │   ├── account-purge.service.js                # Logic xóa cứng tài khoản: quét user khóa >6 tháng (lockedAt), loại trừ user có vết lịch sử thi/audit
+    │   ├── ai-assistant.service.js                 # Logic Trợ lý AI: gọi LLM (tương thích OpenAI API/Gemini), đọc văn bản từ tài liệu (.docx, .pdf, .xlsx), trích xuất tài liệu theo phòng ban, phân tích báo cáo toàn công ty cho Leader, prompt engineering chống hallucination, sinh câu hỏi trắc nghiệm kèm định dạng Word/Excel
     │   ├── analytics.service.js                    # Logic phân tích (chỉ đọc, không đổi schema): tỷ lệ đúng/độ phân biệt/đáp án nhiễu/cờ cảnh báo từng câu hỏi thi chính thức; bản đồ năng lực theo chủ đề (thi chính thức + luyện tập), gộp theo phòng ban có ngưỡng ẩn số liệu; phát hiện bất thường theo kỳ thi (so cặp đáp án sai trùng lặp theo mã đáp án bất chấp xáo đề, phát hiện tốc độ làm bài nhanh bất thường) — chỉ gợi ý, không kết luận gian lận
     │   ├── audit.service.js                        # Ghi log vết hành động, truy vấn/lọc/phân trang nhật ký hệ thống (hỗ trợ tìm kiếm theo nhân viên/phòng ban)
     │   ├── auth.service.js                         # Logic xác thực: kiểm tra bcrypt, tạo JWT Access/Refresh tokens, set cookie, tăng tokenVersion
-    │   ├── backup.service.js                       # Logic sao lưu: mongodump nén .gz, kết nối Google Drive API v3, upload, xoay vòng lưu trữ tối đa 5 bản, khôi phục mongorestore --drop
     │   ├── backup.scheduler.js                     # Cron scheduler: Tự động sao lưu dữ liệu lúc 03:00 hàng ngày (Asia/Ho_Chi_Minh)
-    │   ├── upload-cleanup.scheduler.js             # Cron scheduler: Tự động dọn dẹp tệp tin tạm quá 6 giờ trong thư mục upload (chạy mỗi giờ)
+    │   ├── backup.service.js                       # Logic sao lưu: mongodump nén .gz, kết nối Google Drive API v3, upload, xoay vòng lưu trữ tối đa 5 bản, khôi phục mongorestore --drop
     │   ├── department.service.js                   # Logic phòng ban: CRUD, bắt buộc cả name và code (chuẩn hóa normalizeDeptCode), xóa mềm, tự động khôi phục khi tạo trùng, slugify chuẩn hóa tiếng Việt, upsert phòng ban khi import Excel/Word
     │   ├── exam.service.js                         # Logic kỳ thi: tạo dự thảo, cấu hình phạm vi phòng ban dự thi (toàn bộ hoặc chọn lọc), công tắc bù câu chung (allowCommonCompensation), kiểm tra tác động publishCheck (getActiveAttemptImpact), chỉnh sửa đề xuất, đệ trình duyệt, approve/reject kèm lý do, publish, archive
     │   ├── exam-attempt.service.js                 # Logic làm bài thi chính thức: kiểm tra tính hợp lệ phạm vi phòng ban (chặn CANDIDATE_OUT_OF_SCOPE), xác nhận vai trò/phòng ban thi (chính hoặc kiêm nhiệm), sinh snapshot câu hỏi xáo trộn, start/resume (bảo vệ lỗi trùng khóa E11000 chuyển thành resume), autosave, heartbeat giữ phiên, tự nộp khi vắng mặt >1 phút, chấm điểm tự động, cấp thêm lượt thi bằng $inc nguyên tử kèm đổi vai trò
     │   ├── exam-code-generation.service.js         # Logic sinh mã đề thi: thuật toán phân bổ câu hỏi chung/riêng theo phạm vi phòng ban được phép (allowedDepartmentIds hoặc all), kiểm tra công tắc bù câu chung (isCommonCompensationEnabled), lọc chỉ lấy câu hỏi thi chính thức (usage=exam), assert câu hỏi đủ số lượng, xáo Fisher-Yates, sinh mã đề và chỉ gán cho thí sinh thuộc phạm vi được thi
     │   ├── notification.service.js                 # Logic thông báo: tạo thông báo tự động theo sự kiện kỳ thi (nộp duyệt, phê duyệt, từ chối, phát hành), đánh dấu đã đọc
     │   ├── practice.service.js                     # Logic luyện tập cá nhân: lọc câu hỏi ôn tập (usage=practice), sinh bài luyện ngẫu nhiên theo chủ đề/độ khó, kiểm tra từng câu (chế độ instant), nộp bài, tính điểm, thống kê tiến độ, tính streak & thành tựu
+    │   ├── question-file-builder.js                # Tiện ích sinh file Word (.docx) và Excel (.xlsx) chuẩn hóa từ danh sách câu hỏi do AI tạo (gạch chân đáp án đúng trong Word, tô màu ô đúng trong Excel)
     │   ├── question.service.js                     # Logic ngân hàng câu hỏi: CRUD, upload ảnh Cloudinary, import Excel 2 bước, import Word (.docx) 2 bước sử dụng mammoth (nhận diện gạch chân làm đáp án đúng), chuyển đổi mục đích sử dụng (exam/practice), xóa hàng loạt
     │   ├── report.service.js                       # Logic báo cáo: tổng quan thống kê, báo cáo phòng ban, báo cáo kỳ thi, bảng điểm chi tiết, xuất Excel chuẩn bằng ExcelJS, tra cứu công khai
     │   ├── role.service.js                         # Logic vai trò: truy vấn danh mục Role từ database
@@ -335,6 +339,16 @@ server/
 | `GET` | `/api/analytics/department-competency` | Leader, Admin | Năng lực theo chủ đề gộp theo phòng ban (thi chính thức, tính theo vai trò đã thi). Phòng ban dưới 3 thí sinh bị ẩn số liệu. Không trả về định danh cá nhân. |
 | `GET` | `/api/analytics/anomalies` | Leader, Admin | Dấu hiệu bất thường theo từng kỳ thi (CÓ định danh thí sinh để Leader xem xét). So cặp đáp án sai trùng lặp (theo mã đáp án, bất chấp xáo đề) khi kỳ thi ≥ 10 lượt; phát hiện tốc độ làm bài nhanh bất thường (< 8 giây/câu). Bài bị hệ thống tự nộp bị loại. Lọc tùy chọn `examId`. Chỉ là gợi ý, không kết luận gian lận. |
 | `GET` | `/api/analytics/my-competency` | Candidate | Bản đồ năng lực của chính thí sinh theo chủ đề (thi chính thức + luyện tập) kèm các chủ đề yếu. |
+
+### 17. `/api/ai-assistant` — Trợ lý AI Hỏi đáp & Soạn đề thi
+| Method | Endpoint | Quyền hạn | Chức năng |
+|---|---|---|---|
+| `GET` | `/api/ai-assistant/settings` | Admin | Lấy cấu hình Trợ lý AI (URL, model, prompt, context chars, trạng thái kích hoạt). |
+| `PUT` | `/api/ai-assistant/settings` | Admin | Cập nhật cấu hình Trợ lý AI (bật/tắt, API key, model, prompt hệ thống, max context). |
+| `GET` | `/api/ai-assistant/status` | Candidate, Leader, Examiner | Kiểm tra trạng thái kích hoạt của Trợ lý AI (`{ enabled: boolean }`). |
+| `POST` | `/api/ai-assistant/chat` | Candidate (Rate Limited) | Hỏi đáp Trợ lý AI dựa trên nội dung tài liệu ôn tập của phòng ban thí sinh. Hỗ trợ sinh cú pháp Mermaid mindmap và biểu đồ. |
+| `POST` | `/api/ai-assistant/leader-chat` | Leader (Rate Limited) | Hỏi đáp thông minh phân tích toàn bộ số liệu báo cáo, kết quả thi và tỷ lệ đạt của các phòng ban. |
+| `POST` | `/api/ai-assistant/generate-questions` | Examiner (Rate Limited) | Đọc tài liệu ôn tập nội bộ (.docx, .pdf, .xlsx), trích xuất kiến thức và tự động sinh file đề thi Word/Excel chuẩn mẫu import. |
 
 ---
 

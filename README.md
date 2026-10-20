@@ -22,26 +22,34 @@ Hệ thống được phát triển theo mô hình Client-Server phân lớp rõ
 *   **Framework**: [React 19](https://react.dev/) & [Vite](https://vite.dev/) (Tối ưu tốc độ tải và xây dựng gói bundle cực nhanh).
 *   **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (Hệ thống thiết kế hiện đại, responsive mobile-first, cấu hình token `@theme`).
 *   **Hiệu ứng & Hoạt ảnh**: [Lenis Smooth Scroll](https://github.com/darkroomengineering/lenis) (Cuộn trang mượt mà kết hợp registry quản lý singleton khi mở modal/drawer) & [Motion](https://motion.dev/) (Micro-animations sinh động).
-*   **Trực quan hóa dữ liệu**: [Recharts](https://recharts.org/) (Biểu đồ thống kê kết quả thi theo phòng ban, theo bài thi, phân tích năng lực và tiến độ luyện tập).
+*   **Trực quan hóa dữ liệu & Sơ đồ tư duy**: 
+    *   [Recharts](https://recharts.org/): Biểu đồ radar năng lực, biểu đồ thanh và thống kê điểm số.
+    *   [Mermaid](https://mermaid.js.org/): Dựng trực tiếp sơ đồ tư duy (mindmap) và biểu đồ tương tác ngay trong hộp thoại Trợ lý AI.
 *   **Icons**: [Lucide React](https://lucide.dev/).
+*   **Âm thanh & Giọng nói**: Web Speech API hỗ trợ nhập lệnh giọng nói và đọc Text-to-Speech (TTS).
 
 ### Server (Backend)
 *   **Runtime**: Node.js (Phiên bản `>=22.0.0 <25.0.0`).
 *   **Framework**: Express.js (Kiến trúc RESTful API chuẩn mực, phân tách Router - Controller - Service - Model rõ ràng).
-*   **Cơ sở dữ liệu**: MongoDB & Mongoose ODM (Quản lý 15 Models dữ liệu quan hệ chặt chẽ).
+*   **Cơ sở dữ liệu**: MongoDB & Mongoose ODM (Quản lý 16 Models dữ liệu quan hệ chặt chẽ).
+*   **Trợ lý AI & Mô hình ngôn ngữ lớn (LLM)**:
+    *   Tích hợp đa mô hình qua chuẩn tương thích OpenAI API / Google Gemini API.
+    *   Đọc và trích xuất ngữ cảnh tài liệu PDF/Word/Excel (`unpdf`, `mammoth`, `xlsx`).
+    *   Hỗ trợ thí sinh hỏi đáp kiến thức theo phòng ban, hỗ trợ Leader hỏi đáp báo cáo và hỗ trợ Examiner tự động sinh đề thi trắc nghiệm ra file Word/Excel.
 *   **Xác thực & Bảo mật**:
     *   Xác thực kép **JWT** (`accessToken` ngắn hạn lưu bộ nhớ client, `refreshToken` dài hạn trong `httpOnly cookie`).
     *   Cơ chế **`tokenVersion`** thu hồi phiên tức thì trên mọi thiết bị khi phát hiện đăng nhập mới hoặc đổi mật khẩu.
     *   Tự động khóa tài khoản tạm thời khi đăng nhập sai nhiều lần liên tiếp (`failedLoginAttempts`, `lockUntil`).
     *   `Helmet` bảo vệ các HTTP headers, `CORS` cấu hình an toàn cho phép giao tiếp Client-Server.
-    *   `express-rate-limit` giới hạn tần suất các yêu cầu nhạy cảm: Đăng nhập theo IP và Thao tác phòng thi theo **userId** (chống nghẽn phòng thi lớn dùng chung NAT/IP).
+    *   `express-rate-limit` giới hạn tần suất các yêu cầu nhạy cảm: Đăng nhập theo IP, thao tác phòng thi theo **userId**, và gọi Trợ lý AI theo **userId**.
 *   **Tiến trình tự động (Cron Schedulers)**:
     *   **Sao lưu đám mây**: Tự động backup CSDL lên Google Drive lúc 03:00 hàng ngày (`0 3 * * *`, giữ tối đa 5 bản lưu xoay vòng) và hỗ trợ khôi phục an toàn.
     *   **Dọn file tạm**: Tự động dọn dẹp file tạm quá 6 tiếng trong thư mục uploads mỗi giờ một lần (`0 * * * *`).
     *   **Dọn tài khoản khóa lâu**: Tự động quét và xóa cứng các tài khoản bị khóa liên tục quá 6 tháng không có vết lịch sử thi/audit lúc 04:00 hàng ngày (`0 4 * * *`).
+    *   **Quét bài thi bỏ rơi**: Tự động nộp và chấm điểm các bài thi bị ngắt kết nối quá 2 phút mỗi 1 phút (`* * * * *`).
 *   **Xử lý tệp tin & Đa phương tiện**:
     *   `exceljs` & `xlsx`: Đọc và xuất báo cáo kết quả thi, danh sách tài khoản thí sinh định dạng Excel chuyên nghiệp.
-    *   `mammoth`: Bóc tách và phân tích đề thi từ tệp Word (.docx), tự động nhận diện đáp án đúng qua định dạng gạch chân chân phương (underline).
+    *   `mammoth` & `unpdf`: Bóc tách và phân tích đề thi từ tệp Word (.docx) và PDF.
     *   `multer` + `Cloudinary SDK`: Tải và tối ưu hóa hình ảnh câu hỏi đám mây (định danh bằng SHA-256 hash chống lưu trùng ảnh).
     *   Lưu trữ & stream tài liệu học tập an toàn trên máy chủ nội bộ theo phân quyền phòng ban.
 
@@ -57,6 +65,7 @@ Hệ thống tổ chức dữ liệu một cách chặt chẽ và lưu trữ tr�
 | **Ngân hàng câu hỏi (Thi & Ôn tập)** | Do Người ra đề (`examiner`) biên soạn hoặc import qua Excel/Word (.docx), phân tách mục đích `usage` (`exam` - bảo mật tuyệt đối cho thi chính thức; `practice` - mở cho thí sinh tự luyện tập). | **MongoDB Atlas** (Các collection `questions`, `answers`, `topics`). |
 | **Hình ảnh minh họa câu hỏi** | Được tải lên từ máy tính của Người ra đề khi soạn thảo ngân hàng đề, định danh hash SHA-256. | **Cloudinary** (Lưu trữ và tối ưu hóa hình ảnh đám mây). |
 | **Tài liệu ôn tập (.pdf, .docx, .xlsx)** | Do Người ra đề / Admin tải lên nhằm hỗ trợ thí sinh ôn luyện lý thuyết theo phạm vi chung hoặc theo từng phòng ban chuyên môn. | **Máy chủ nội bộ (Disk Storage)** (Phân quyền truy cập theo phòng ban, xem trực tuyến hoặc tải về qua API Stream an toàn). |
+| **Cấu hình Trợ lý AI** | Cấu hình Base URL, API Key, Model, System Prompt và hạn mức ký tự tài liệu do Quản trị viên thiết lập. | **MongoDB Atlas** (Collection `aisettings`). |
 | **Cấu trúc kỳ thi, Mã đề & Lượt thi** | Được tạo khi duyệt & phát hành đề thi; sinh mã đề độc lập, snapshot câu hỏi & đáp án xáo ngẫu nhiên riêng cho từng thí sinh. | **MongoDB Atlas** (Các collection `exams`, `examcodes`, `examcodequestions`, `examcandidates`, `examattempts`, `attemptquestions`). |
 | **Kết quả và Lịch sử thi** | Do máy chủ tự động chấm điểm ngay sau khi thí sinh nộp bài hoặc khi ca thi tự động hết giờ / timeout. | **MongoDB Atlas** (Các collection `results`, `candidateanswers`, `practicesessions`). |
 | **Hệ thống Thông báo (In-app)** | Tự động phát sinh khi gửi đề xuất, duyệt đề, từ chối đề hoặc phát hành kỳ thi chính thức. | **MongoDB Atlas** (Collection `notifications`). |
@@ -108,18 +117,20 @@ Hệ thống phân chia rõ ràng 4 nhóm vai trò nghiệp vụ (Role) hoạt �
 
 ## 5. Tính năng nổi bật
 
+*   🤖 **Trợ lý AI Thông minh & Trực quan hóa Sơ đồ tư duy (Mermaid)**: Hỗ trợ thí sinh ôn tập hỏi đáp dựa trên tài liệu theo phòng ban, tự động sinh sơ đồ tư duy (mindmap) và biểu đồ tương tác, hỗ trợ nhập lệnh giọng nói và đọc Text-to-Speech (TTS). Hỗ trợ Leader hỏi đáp phân tích số liệu báo cáo, và hỗ trợ Examiner tự động trích xuất kiến thức từ tài liệu sinh đề thi trắc nghiệm ra file Word/Excel.
 *   ⚡ **Phòng thi chính thức thông minh & An toàn thời gian thực**: Tự động lưu đáp án ngay khi chọn (Autosave), đếm ngược thời gian, kiểm tra nhịp tim (Heartbeat 15s/lần) và tự động thu bài nếu thí sinh rời ca thi quá 1 phút (`inactive_timeout`).
 *   👥 **Hỗ trợ Nhân viên Kiêm nhiệm & Khóa vai trò**: Cho phép một nhân sự thuộc nhiều phòng ban (`extraDepartmentIds`). Thí sinh tự chọn vai trò thi trước khi làm bài; hệ thống tự động khóa vai trò và gắn đúng vào kết quả thi.
 *   ⚖️ **Công tắc Bù câu hỏi chung (`allowCommonCompensation`)**: Linh hoạt cho phép hoặc chặn bù trừ câu hỏi chung khi ngân hàng câu hỏi riêng của một phòng ban chưa đủ số lượng.
 *   📑 **Nhập đề đa định dạng (Excel & Word .docx)**: Hỗ trợ import câu hỏi nhanh từ Word (nhận diện câu hỏi, các phương án A/B/C/D và gạch chân đáp án đúng) cùng quy trình Preview 2 bước an toàn.
 *   🔔 **Hệ thống Thông báo In-App Realtime**: Tự động điều hướng và phát thông báo qua chuông khi có đề xuất mới, khi đề được duyệt/từ chối, hoặc khi kỳ thi chính thức được phát hành.
 *   🎯 **Phân hệ Luyện tập cá nhân chuyên sâu**: Thí sinh chủ động chọn chủ đề, số câu (5/10/20/30 câu), giới hạn thời gian và độ khó. Hỗ trợ 2 chế độ: **Kiểm tra ngay** (biết đúng/sai ngay từng câu) hoặc **Mô phỏng thi** (làm bài hoàn chỉnh rồi mới chấm).
+*   📈 **Phân tích Chất lượng Câu hỏi & Phát hiện Bất thường**: Đánh giá độ phân biệt, tỷ lệ chọn từng đáp án, cảnh báo nghi sai đáp án (`QuestionAnalysisTab`). Rà soát dấu hiệu bất thường theo kỳ thi (so cặp đáp án sai trùng lặp, tốc độ làm bài nhanh bất thường `AnomalyTab`).
 *   🔒 **Phân tách Ngân hàng Đề & Chống lộ đề thi**: Phân tách rạch ròi ngân hàng *Thi chính thức* (tuyệt đối bảo mật) và *Ôn tập* (cho phép xem đáp án). Khi chuyển câu hỏi sang ngân hàng Ôn tập, hệ thống tự động kiểm tra và chặn toàn bộ thao tác nếu chủ đề đang nằm trong kỳ thi đang phát hành (`published`).
 *   🎲 **Xáo trộn mã đề ngẫu nhiên (Fisher–Yates)**: Khi phát hành kỳ thi, hệ thống tự động trộn ngẫu nhiên thứ tự câu hỏi và thứ tự các phương án trả lời độc lập cho từng thí sinh, đảm bảo không có mã đề nào trùng lặp.
 *   📊 **Báo cáo & Xuất dữ liệu chuyên nghiệp**: Thống kê tỉ lệ đạt/không đạt trực quan bằng biểu đồ Recharts, xuất báo cáo kết quả và danh sách tài khoản thí sinh ra định dạng Excel chuẩn.
 *   🛡️ **Bảo mật & Kiểm toán toàn diện**: Phát hiện và chặn đăng nhập đồng thời qua `tokenVersion`, rate limit theo `userId` chống nghẽn phòng thi, ghi vết toàn bộ hoạt động nhạy cảm vào Audit Log với nhãn tiếng Việt chuẩn hóa.
 *   💾 **Sao lưu đám mây tự động & Khôi phục an toàn**: Tự động backup CSDL lên Google Drive lúc 3h sáng mỗi ngày, hỗ trợ Admin tải bản sao lưu và khôi phục CSDL trực tiếp có thanh tiến trình % trực quan.
-*   🧹 **Tự động dọn dẹp hệ thống**: Cron job định kỳ dọn file tạm rác trong thư mục upload và xóa cứng an toàn các tài khoản bị khóa liên tục quá 6 tháng không có vết lịch sử thi.
+*   🧹 **Tự động dọn dẹp hệ thống**: Cron job định kỳ dọn file tạm rác trong thư mục upload, quét tự động nộp bài thi bỏ rơi mỗi phút và xóa cứng an toàn các tài khoản bị khóa liên tục quá 6 tháng không có vết lịch sử thi.
 
 ---
 

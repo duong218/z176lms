@@ -24,7 +24,9 @@
 | Câu hỏi trong lượt thi (Autosave) | `AttemptQuestion` | Lưu tạm các đáp án thí sinh đã chọn trong quá trình làm bài phục vụ autosave và khôi phục khi reload/resume. | Tự động lưu mỗi khi thí sinh chọn đáp án. |
 | Đáp án thí sinh đã nộp | `CandidateAnswer` | Chi tiết toàn bộ đáp án thí sinh đã chọn sau khi chính thức nộp bài, phục vụ chấm điểm và tra cứu. | |
 | Kết quả thi | `Result` | Điểm số cuối cùng, trạng thái đạt/không đạt (`passed`/`failed`), số câu đúng, liên kết với `ExamAttempt`. | Lưu trữ phục vụ báo cáo và tra cứu kết quả. |
-| Tài liệu ôn tập | `StudyDocument` | Tài liệu dạng file (PDF, Word, Excel...) được tải lên Cloudinary, phân theo chủ đề và phạm vi phòng ban cho thí sinh ôn luyện. | Quản lý tại `StudyDocumentTab.jsx`, API `/api/study-documents`. |
+| Tài liệu ôn tập | `StudyDocument` | Tài liệu dạng file (PDF, Word, Excel...) được lưu trữ an toàn trên đĩa server nội bộ, phân theo chủ đề và phạm vi phòng ban cho thí sinh ôn luyện. | Quản lý tại `StudyDocumentTab.jsx`, API `/api/study-documents`. |
+| Cấu hình Trợ lý AI | `AiSetting` | Bản ghi cấu hình singleton lưu Base URL, API Key, Model LLM, System Prompt và hạn mức ký tự tài liệu cho Trợ lý AI. | Quản lý tại `AiSettingsTab.jsx`, API `/api/ai-assistant/settings`. |
+| Trợ lý AI / Chatbox | `AiAssistantChat` | Khung chat hỏi đáp AI theo tài liệu ôn tập của phòng ban thí sinh hoặc phân tích báo cáo cho Leader; hỗ trợ sinh biểu đồ/sơ đồ Mermaid, nhập giọng nói và phát âm Text-to-Speech. | Tích hợp tại Dashboard Thí sinh và Leader, API `/api/ai-assistant/chat`. |
 | Nhật ký hệ thống / Audit log | `AuditLog` | Bản ghi vết toàn bộ hành động nhạy cảm: tạo/sửa/xóa tài khoản, khóa/mở, reset mật khẩu, sao lưu/khôi phục, duyệt đề thi, chấm điểm, gỡ tài liệu... | Chuẩn hóa ghi tập trung tại tầng Controller. Xem `AuditLogTab.jsx`. |
 
 ---
@@ -35,10 +37,10 @@ Hệ thống có **4 vai trò** phân quyền rõ ràng:
 
 | Tên vai trò (Tiếng Việt) | Mã chuẩn trong code (`role.code`) | Quyền hạn chính |
 |---|---|---|
-| **Quản trị viên** | `admin` | Toàn quyền quản trị tài khoản (CRUD, import/export Excel, phân quyền, khóa/mở, reset mật khẩu), xem nhật ký hệ thống (`AuditLog`), quản lý sao lưu & khôi phục CSDL (`BackupTab`). |
-| **Người ra đề** | `examiner` | Quản lý ngân hàng câu hỏi (CRUD, import Excel, upload ảnh), quản lý chủ đề, quản lý phòng ban, quản lý tài liệu ôn tập, tạo và đệ trình đề xuất kỳ thi (`ExamProposalTab`). |
-| **Người duyệt đề / Lãnh đạo** | `leader` | Xem và phê duyệt/từ chối/phát hành/lưu trữ các đề xuất kỳ thi (`ExamReviewTab`), xem báo cáo thống kê toàn diện, xuất file Excel kết quả, cấp thêm lượt thi cho thí sinh. |
-| **Thí sinh** | `candidate` | Xem kỳ thi được phân bổ, tra cứu/tải tài liệu ôn tập theo phòng ban, thực hiện bài thi (làm bài, autosave, heartbeat, nộp bài), xem lịch sử kết quả thi cá nhân. |
+| **Quản trị viên** | `admin` | Toàn quyền quản trị tài khoản (CRUD, import/export Excel, phân quyền, khóa/mở, reset mật khẩu), xem nhật ký hệ thống (`AuditLog`), quản lý sao lưu & khôi phục CSDL (`BackupTab`), cấu hình tích hợp Trợ lý AI (`AiSettingsTab`). |
+| **Người ra đề** | `examiner` | Quản lý ngân hàng câu hỏi (CRUD, import Excel/Word, upload ảnh), phân tích câu hỏi (`QuestionAnalysisTab`), tạo câu hỏi tự động bằng AI (`QuestionGeneratorTab`), quản lý chủ đề, quản lý phòng ban, quản lý tài liệu ôn tập, tạo và đệ trình đề xuất kỳ thi (`ExamProposalTab`). |
+| **Người duyệt đề / Lãnh đạo** | `leader` | Xem và phê duyệt/từ chối/phát hành/lưu trữ các đề xuất kỳ thi (`ExamReviewTab`), xem báo cáo thống kê toàn diện, theo dõi dấu hiệu bất thường (`AnomalyTab`) & năng lực phòng ban (`CompetencyTab`), hỏi đáp số liệu với Trợ lý báo cáo AI, xuất file Excel kết quả, cấp thêm lượt thi cho thí sinh. |
+| **Thí sinh** | `candidate` | Xem kỳ thi được phân bổ, tra cứu/tải tài liệu ôn tập theo phòng ban, hỏi đáp học tập với Trợ lý AI kèm sơ đồ tư duy/biểu đồ Mermaid, luyện tập tự do & tích lũy thành tích, thực hiện bài thi (làm bài, autosave, heartbeat, nộp bài), xem lịch sử kết quả thi cá nhân. |
 
 > ⚠️ Không dùng các từ chung chung như `user`, `teacher`, `student` trong mã nguồn.
 
@@ -55,11 +57,12 @@ Hệ thống có **4 vai trò** phân quyền rõ ràng:
 | **Tự động lưu bài** | `answerExamQuestion()` / `autosave` | Gửi đáp án đã chọn lên server ngay lập tức khi thí sinh bấm chọn, lưu vào `AttemptQuestion` mà không cần chờ đến lúc nộp bài. |
 | **Trộn đề ngẫu nhiên** | `exam-code-generation.service.js` | Sinh các mã đề xáo trộn thứ tự câu hỏi và thứ tự đáp án từ ngân hàng câu hỏi bằng thuật toán an toàn khi phát hành đề thi. |
 | **Sao lưu & Khôi phục** | `backup.service.js` | Dump cơ sở dữ liệu MongoDB ra file nén `.gz`, đồng bộ lên Google Drive (OAuth2 cá nhân) tự động xoay vòng (tối đa 5 bản), khôi phục trực tiếp với theo dõi tiến trình upload (`XMLHttpRequest.onprogress`). |
+| **Trợ lý AI & Soạn đề tự động** | `ai-assistant.service.js` | Kết nối LLM (Gemini / OpenAI API tương thích), đọc tài liệu (.docx, .pdf, .xlsx), hỏi đáp bám sát nội dung phòng ban và sinh file đề thi Word/Excel chuẩn hóa phục vụ kiểm duyệt. |
 
 ---
 
 ## 4. Quy tắc áp dụng thuật ngữ
 
 1. **Khi viết Code & Model:** Phải dùng đúng các tên Model và thuộc tính đã nêu ở Mục 1 & 2 (ví dụ: dùng `ExamAttempt` thay cho `ExamSession`, `examCandidateId` thay cho `candidateSessionId`).
-2. **Khi thiết kế API:** Đường dẫn RESTful phải thống nhất: `/api/exams`, `/api/exam-attempts`, `/api/questions`, `/api/topics`, `/api/departments`, `/api/study-documents`, `/api/audit-logs`, `/api/backups`.
+2. **Khi thiết kế API:** Đường dẫn RESTful phải thống nhất: `/api/exams`, `/api/exam-attempts`, `/api/questions`, `/api/topics`, `/api/departments`, `/api/study-documents`, `/api/audit-logs`, `/api/backups`, `/api/analytics`, `/api/ai-assistant`.
 3. **Khi trao đổi & Viết tài liệu:** Giữ đúng danh xưng 4 vai trò (Quản trị viên, Người ra đề, Người duyệt đề/Lãnh đạo, Thí sinh) và cấu trúc trạng thái của hệ thống.

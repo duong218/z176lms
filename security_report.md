@@ -20,9 +20,10 @@
 | **4. An toàn dữ liệu & Lưu trữ (Data Protection & Storage)** | **90/100** | 🟢 Rất tốt | Bcrypt hash Salt=12, tài liệu lưu đĩa cục bộ stream xác thực JWT, ảnh Cloudinary hash SHA-256 qua RAM không lưu đĩa, dọn file tạm rác tự động. |
 | **5. Giám sát & Nhật ký kiểm toán (Audit Logging & Monitoring)** | **92/100** | 🟢 Rất tốt | Ghi vết toàn bộ hành vi nhạy cảm của người dùng và cron job tự động kèm IP, Actor, Metadata chi tiết; tìm kiếm thông minh theo nhân viên / phòng ban. |
 | **6. Sao lưu & Phục hồi thảm họa (Disaster Recovery)** | **94/100** | 🟢 Xuất sắc | Tự động sao lưu hàng ngày lúc 03:00 lên Google Drive qua OAuth2, xoay vòng 5 bản, cơ chế xác nhận nghiêm ngặt khi khôi phục (`confirm=RESTORE`). |
-| **7. An ninh hạ tầng & Tầng mạng (Infrastructure & Network)** | **90/100** | 🟢 Rất tốt | Keyed Rate Limiting theo `IP + username` (chỉ tính thất bại) và theo `userId` (phòng thi), Helmet.js chống clickjacking/XSS, CORS whitelist. |
+| **7. An ninh hạ tầng & Tầng mạng (Infrastructure & Network)** | **90/100** | 🟢 Rất tốt | Keyed Rate Limiting theo `IP + username` (chỉ tính thất bại) và theo `userId` (phòng thi, AI chat), Helmet.js chống clickjacking/XSS, CORS whitelist. |
+| **8. An toàn Trợ lý AI & Cô lập dữ liệu (AI Safety & Privacy)** | **94/100** | 🟢 Xuất sắc | Hạn chế context theo phòng ban của thí sinh, áp dụng nguyên tắc Mock Data tuyệt đối không lộ bí mật quân sự, kiểm duyệt 2 bước khi sinh đề thi (xuất file Word/Excel kiểm duyệt, không ghi thẳng DB). |
 
-> ⭐ **ĐIỂM ĐÁNH GIÁ TRUNG BÌNH TOÀN HỆ THỐNG:** **93.1 / 100 (Hạng A+ - Xuất sắc, sẵn sàng vận hành sản xuất)**
+> ⭐ **ĐIỂM ĐÁNH GIÁ TRUNG BÌNH TOÀN HỆ THỐNG:** **93.3 / 100 (Hạng A+ - Xuất sắc, sẵn sàng vận hành sản xuất)**
 
 ---
 
@@ -41,10 +42,11 @@ Hệ thống sở hữu nhiều giải pháp kiến trúc an ninh vượt trội
    - **Lớp 1 (Client)**: Phát hiện chuyển tab/mở ứng dụng khác, hiển thị đếm ngược 10 giây tự thu bài.
    - **Lớp 2 (Server Request)**: Mọi thao tác thi đều kiểm tra inactivity; nếu ngắt kết nối quá 60s, server tự nộp bài (`inactive_timeout`) và chấm điểm trên các đáp án đã autosave.
    - **Lớp 3 (Cron Scheduler)**: Tiến trình nền chạy mỗi phút quét và tự động nộp bài cho các thí sinh tắt hẳn máy tính, ngắt mạng bỏ dở bài thi quá 2 phút hoặc quá thời hạn làm bài (`expiresAt`).
-4. **Bảo vệ tài liệu nội bộ (Zero Public File Exposure)**:
+4. **Bảo vệ tài liệu nội bộ & Trợ lý AI cô lập phòng ban**:
    - File tài liệu ôn tập (.pdf, .docx, .xlsx) không lưu trên cloud công cộng, không có static URL. File được lưu trên đĩa server nội bộ và chỉ stream dữ liệu nhị phân khi request có JWT hợp lệ và đúng phòng ban.
+   - Trợ lý AI (`AiAssistantChat`) áp dụng kiểm soát quyền nghiêm ngặt: thí sinh chỉ được cung cấp ngữ cảnh tài liệu ôn tập thuộc phòng ban chính và các phòng kiêm nhiệm của mình. Giới hạn `maxDocChars` tránh tràn context và ngăn ngừa tấn công prompt injection.
 5. **Keyed Rate Limiting thông minh chống nghẽn mạng nội bộ**:
-   - Tách biệt hoàn toàn: Đăng nhập giới hạn theo cặp `${req.ip}|${username}` và chỉ đếm số lần sai (`skipSuccessfulRequests: true`). Phòng thi giới hạn 100 req/phút theo **userId**. Nhờ đó, việc hàng trăm thí sinh ngồi chung một phòng máy (chung 1 địa chỉ IP NAT ra ngoài) thi cùng lúc không bao giờ bị nghẽn hay khóa nhầm chéo nhau.
+   - Tách biệt hoàn toàn: Đăng nhập giới hạn theo cặp `${req.ip}|${username}` và chỉ đếm số lần sai (`skipSuccessfulRequests: true`). Phòng thi giới hạn 100 req/phút theo **userId**. Gọi Trợ lý AI có `aiChatRateLimiter` riêng biệt. Nhờ đó, việc hàng trăm thí sinh ngồi chung một phòng máy (chung 1 địa chỉ IP NAT ra ngoài) thi cùng lúc không bao giờ bị nghẽn hay khóa nhầm chéo nhau.
 6. **Kiểm soát phát hành kỳ thi tuyệt đối (Single Published Exam & Publish Lock)**:
    - Database chỉ cho phép tối đa 1 kỳ thi `published` tại một thời điểm nhờ partial unique index `uniq_single_published_exam`.
    - Khóa nguyên tử `publishLockedAt` (TTL 10 phút) ngăn chặn 2 Leader cùng bấm phát hành đồng thời hoặc thao tác lưu trữ chen ngang.
@@ -52,6 +54,7 @@ Hệ thống sở hữu nhiều giải pháp kiến trúc an ninh vượt trội
    - Chức năng khôi phục DB (`mongorestore`) yêu cầu nhập chính xác chuỗi `RESTORE` để ngăn ngừa xóa nhầm dữ liệu.
    - Quản lý file tạm tự động qua cron job mỗi giờ, xóa file > 6 tiếng, ghi nhật ký kiểm toán rõ ràng.
    - Cron job 04:00 sáng tự động dọn tài khoản bị khóa liên tục > 6 tháng nhưng bảo toàn 100% tài khoản đã có lịch sử thi hoặc lịch sử kiểm toán.
+   - Sinh câu hỏi tự động bằng AI (`generate-questions`) chỉ kết xuất ra file Word/Excel chuẩn hóa để Examiner kiểm duyệt trước khi import, tuyệt đối không cho phép AI tự động chèn dữ liệu trực tiếp vào ngân hàng câu hỏi chính thức.
 
 ---
 
