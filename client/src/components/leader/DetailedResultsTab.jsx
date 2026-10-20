@@ -177,7 +177,8 @@ export const DetailedResultsTab = () => {
       </div>
 
       {/* Bộ lọc — xếp cột đơn trên mobile, đủ chiều cao 48px cho mỗi ô theo design system */}
-      <div className="animate-fade-in-up bg-white rounded-xl border border-[#E2E8F0] p-4" style={{ '--stagger-delay': '80ms' }}>
+      {/* relative z-20: nâng thẻ bộ lọc lên trên thẻ bảng phía sau (animate-fade-in-up tạo stacking context riêng) để dropdown không bị đè */}
+      <div className="animate-fade-in-up relative z-20 bg-white rounded-xl border border-[#E2E8F0] p-4" style={{ '--stagger-delay': '80ms' }}>
         <form onSubmit={applyFilters} className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <Search className="w-5 h-5 text-[#64748B] absolute left-3 top-1/2 -translate-y-1/2" />
