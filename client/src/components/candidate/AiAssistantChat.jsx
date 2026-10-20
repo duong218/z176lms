@@ -132,12 +132,34 @@ const MERMAID_CONFIG = {
   securityLevel: 'strict', // nội dung do AI sinh ra
   suppressErrorRendering: true,
   theme: 'base',
+  // Bo góc + đổ bóng nhẹ cho nút; gốc sơ đồ tư duy màu xanh thương hiệu; nhãn mũi tên chữ đậm trên nền trắng
+  // (vì chữ chính của sơ đồ là trắng trên nền màu, nhãn mũi tên nằm trên nền trắng nên phải ép màu riêng).
+  themeCSS: `
+    .node rect, .node polygon, .node circle, .node path { filter: drop-shadow(0 2px 4px rgba(15,23,42,.22)); }
+    .node rect { rx: 12px; ry: 12px; }
+    .section-root :is(circle, path, rect, ellipse) { fill: #008BC5 !important; stroke: #FFFFFF; stroke-width: 3px; filter: drop-shadow(0 3px 6px rgba(15,23,42,.30)); }
+    .edgeLabel, .edgeLabel *, .edgeLabel p { color: #0F172A !important; fill: #0F172A !important; background-color: #FFFFFF !important; }
+    .section-root text, .section-root tspan { fill: #FFFFFF !important; font-weight: 700; }
+  `,
+  gantt: { axisFormat: '%d/%m' }, // trục ngày mặc định YYYY-MM-DD dài nên chữ chồng lên nhau
+  flowchart: { curve: 'basis', padding: 18, nodeSpacing: 40, rankSpacing: 50, htmlLabels: true },
   themeVariables: {
     fontSize: '16px',
-    primaryColor: '#DBEAFE',
-    primaryBorderColor: '#1D4ED8',
-    primaryTextColor: '#0F172A',
-    lineColor: '#1E293B',
+    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    primaryColor: '#008BC5', // nút/thanh: nền xanh thương hiệu + chữ trắng
+    primaryBorderColor: '#0078AA',
+    primaryTextColor: '#FFFFFF',
+    textColor: '#0F172A', // phải đặt riêng: mặc định lấy theo primaryTextColor (trắng) -> tiêu đề/nhãn trên nền trắng sẽ vô hình
+    titleColor: '#0F172A',
+    lineColor: '#64748B',
+    secondaryColor: '#EAF6FF',
+    tertiaryColor: '#FFFFFF',
+    edgeLabelBackground: '#FFFFFF',
+    taskTextColor: '#FFFFFF',
+    taskTextLightColor: '#FFFFFF',
+    taskTextOutsideColor: '#0F172A',
+    // Sơ đồ tư duy: mỗi nhánh 1 màu đậm, chữ trắng (mặc định là màu pastel chữ đen/trắng lẫn lộn)
+    ...Object.fromEntries(COLORS.flatMap((c, i) => [[`cScale${i}`, c], [`cScaleLabel${i}`, '#FFFFFF']])),
     ...Object.fromEntries(COLORS.map((c, i) => [`pie${i + 1}`, c])),
     pieOpacity: '1',
     pieSectionTextColor: '#FFFFFF',
@@ -152,16 +174,16 @@ const MERMAID_CONFIG = {
     xyChart: {
       backgroundColor: '#FFFFFF',
       titleColor: '#0F172A',
-      xAxisLabelColor: '#0F172A',
-      xAxisTitleColor: '#0F172A',
-      xAxisTickColor: '#0F172A',
-      xAxisLineColor: '#0F172A',
-      yAxisLabelColor: '#0F172A',
-      yAxisTitleColor: '#0F172A',
-      yAxisTickColor: '#0F172A',
-      yAxisLineColor: '#0F172A',
+      xAxisLabelColor: '#334155',
+      xAxisTitleColor: '#64748B',
+      xAxisTickColor: '#CBD5E1',
+      xAxisLineColor: '#CBD5E1',
+      yAxisLabelColor: '#334155',
+      yAxisTitleColor: '#64748B',
+      yAxisTickColor: '#CBD5E1',
+      yAxisLineColor: '#CBD5E1',
       dataLabelColor: '#FFFFFF',
-      plotColorPalette: COLORS.join(','),
+      plotColorPalette: ['#008BC5', ...COLORS.slice(1)].join(','), // cột/đường đầu tiên màu xanh thương hiệu
     },
   },
   // Chart hẹp lại để khi co vào khung chat chữ không bị thu nhỏ; hiện số trên cột
@@ -191,7 +213,11 @@ const DiagramPanel = ({ code, onClose }) => {
         const text = toMermaid(code);
         mermaid.initialize({ ...MERMAID_CONFIG, xyChart: xyConfig(text), themeVariables: { ...MERMAID_CONFIG.themeVariables, fontSize } });
         const { svg } = await mermaid.render(`mm-${Date.now()}`, text);
-        if (!cancelled && boxRef.current) boxRef.current.innerHTML = svg;
+        if (cancelled || !boxRef.current) return;
+        boxRef.current.innerHTML = svg;
+        // Hiện dần khi sơ đồ vừa vẽ xong (bỏ qua nếu người dùng bật "giảm chuyển động")
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+          boxRef.current.animate?.([{ opacity: 0, transform: 'scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 350, easing: 'ease-out' });
       })
       .catch(() => !cancelled && setFailed(true));
     return () => {
