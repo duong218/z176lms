@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, Clock, CheckCircle, XCircle, Globe, CheckCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bell, Clock, CheckCircle, XCircle, Globe, AlertTriangle, CheckCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   fetchNotifications,
   fetchUnreadCount,
@@ -15,6 +15,7 @@ const TYPE_CONFIG = {
   exam_approved: { Icon: CheckCircle, color: '#16A34A' },
   exam_rejected: { Icon: XCircle, color: '#C53030' },
   exam_published: { Icon: Globe, color: '#008BC5' },
+  exam_assignment_failed: { Icon: AlertTriangle, color: '#B45309' },
 };
 
 // Khoảng thời gian polling số thông báo chưa đọc — đủ nhanh để cảm nhận

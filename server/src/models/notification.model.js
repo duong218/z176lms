@@ -14,7 +14,7 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['exam_submitted', 'exam_approved', 'exam_rejected', 'exam_published'],
+      enum: ['exam_submitted', 'exam_approved', 'exam_rejected', 'exam_published', 'exam_assignment_failed'],
     },
     title: { type: String, required: true, trim: true },
     message: { type: String, required: true, trim: true },
