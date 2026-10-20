@@ -178,6 +178,20 @@ Người dùng làm việc/thi chủ yếu trên điện thoại. Toàn bộ h�
 - **Hiệu ứng fadeInUp an toàn**: Chỉ áp dụng biến đổi `opacity` và `transform: translateY` (được GPU compositor xử lý độc lập) cho danh sách bảng biểu. Hỗ trợ biến `--stagger-delay` phân tầng mượt mà.
 - **Tôn trọng `prefers-reduced-motion`**: Luôn tắt bỏ hoàn toàn animation khi người dùng bật chế độ giảm chuyển động trong cài đặt thiết bị để đảm bảo tính tiếp cận (Accessibility).
 
+### Thành phần Trợ lý AI & Sơ đồ tư duy (AiAssistantChat & Mindmaps)
+- **Cửa sổ Chat Trợ lý AI (`AiAssistantChat.jsx`)**:
+  - **Giao diện & Vị trí**: Hộp thoại nổi (floating drawer/modal) hoặc tích hợp trong tab, nền trắng `#FFFFFF`, bo góc `12px`, viền `1px solid #E2E8F0`, shadow `0px 2px 8px rgba(15,23,42,0.1)`.
+  - **Bong bóng tin nhắn (Chat Bubbles)**:
+    - *Người dùng*: Nền xanh chính `#008BC5`, chữ trắng `#FFFFFF`, bo góc `12px` (bo tròn góc dưới phải `4px`), căn phải.
+    - *Trợ lý AI*: Nền xám nhạt `#F6F8FA`, chữ `#0F172A`, viền `1px solid #E2E8F0`, bo góc `12px` (bo tròn góc dưới trái `4px`), căn trái.
+  - **Hiển thị Sơ đồ tư duy (Mermaid Mindmap/Diagram)**:
+    - Render trực tiếp khối mã Mermaid (`mindmap`, `graph TD`, `pie`) thành SVG vector sắc nét.
+    - Container sơ đồ có nền trắng `#FFFFFF`, viền `1px solid #CBD5E1`, bo góc `8px`, hỗ trợ nút "Phóng to / Toàn màn hình" và nút sao chép cú pháp.
+    - Bảng màu sơ đồ tuân thủ đúng 5 màu chức năng của hệ thống (Xanh chính, Xanh lá, Đỏ, Vàng-cam, Xám), chữ tối thiểu 14px đảm bảo người lớn tuổi đọc rõ trên điện thoại.
+  - **Điều khiển Giọng nói & Text-to-Speech (Web Speech API)**:
+    - *Nút micro (Voice Input)*: Chiều cao tối thiểu `44×44px`, icon mic kèm nhãn chữ "Nói". Khi đang lắng nghe: viền đỏ `#E53E3E`, hiệu ứng nhấp nháy nhẹ (pulse) nhận diện trạng thái ghi âm.
+    - *Nút đọc (Text-to-Speech)*: Icon loa nhỏ bên dưới câu trả lời của AI, màu `#64748B`, đổi sang `#008BC5` khi đang phát âm thanh, có nút dừng đọc tức thì.
+
 
 ---
 
@@ -315,3 +329,4 @@ Trên mobile, **không đặt lưới điều hướng cố định trên màn h
 12. **Bottom action bar mobile tối đa 2 nút/hàng** ("Câu trước"/"Câu tiếp"); nút "Nộp bài" và nút mở danh sách câu hỏi đặt tách riêng.
 13. Trạng thái đúng/sai/đạt/không đạt luôn có **cả màu và chữ** đi kèm — không dựa hoàn toàn vào màu sắc để truyền đạt thông tin.
 14. **Sử dụng `ConfirmDialog` (`useConfirm`) và `ToastContext` (`useToast`)** thay cho các hộp thoại pop-up gốc của trình duyệt (`alert`, `confirm`).
+15. **Sơ đồ tư duy AI (Mermaid) và Bong bóng Chat**: Tuân thủ đúng 5 màu chức năng của hệ thống, cỡ chữ sơ đồ tối thiểu 14px, các nút tương tác giọng nói/âm thanh đạt vùng chạm tối thiểu 44×44px.
