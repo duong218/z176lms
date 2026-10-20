@@ -141,7 +141,7 @@ function readDocumentText(doc) {
     return mammoth.extractRawText({ path: doc.filePath }).then((r) => done(r.value || ''));
   }
   if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    const wb = XLSX.readFile(doc.filePath, { cellDates: false });
+    const wb = XLSX.read(fs.readFileSync(doc.filePath), { type: 'buffer', cellDates: false });
     const text = wb.SheetNames.map(
       (sn) => `[Sheet: ${sn}]\n${XLSX.utils.sheet_to_csv(wb.Sheets[sn])}`,
     ).join('\n');

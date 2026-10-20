@@ -676,7 +676,7 @@ function readImportRows(filePath) {
 
   let workbook;
   try {
-    workbook = XLSX.readFile(filePath, { cellDates: false });
+    workbook = XLSX.read(fs.readFileSync(filePath), { type: 'buffer', cellDates: false });
   } catch (err) {
     throw new ApiError(
       400,

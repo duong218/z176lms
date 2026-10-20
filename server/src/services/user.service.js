@@ -672,7 +672,7 @@ function readImportRows(filePath) {
     throw new ApiError(400, 'Không đọc được file upload', 'IMPORT_FILE_MISSING');
   }
 
-  const workbook = XLSX.readFile(filePath, { cellDates: false });
+  const workbook = XLSX.read(fs.readFileSync(filePath), { type: 'buffer', cellDates: false });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) throw new ApiError(400, 'File Excel không có sheet', 'IMPORT_EMPTY');
 

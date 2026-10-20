@@ -32,7 +32,7 @@
     "multer": "^2.2.0",
     "node-cron": "^4.6.0",
     "unpdf": "^1.8.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "open": "^11.0.1"

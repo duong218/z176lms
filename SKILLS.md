@@ -12,12 +12,13 @@
 | Thành phần | Lựa chọn chính thức | Chi tiết kỹ thuật & Thư viện |
 |---|---|---|
 | **Frontend** | React 19 + Vite | SPA hiệu năng cao, React Context cho state toàn cục (`ToastContext`, `ConfirmContext`). |
-| **Styling & UI** | Tailwind CSS v4 | Thiết kế tối giản, responsive mobile-first, Lucide React icons, Lenis smooth scroll, Motion micro-animations, Recharts trực quan hóa biểu đồ. |
+| **Styling & UI** | Tailwind CSS v4 | Thiết kế tối giản, responsive mobile-first, Lucide React icons, Lenis smooth scroll, Motion micro-animations, Recharts trực quan hóa biểu đồ, Mermaid.js (dựng sơ đồ tư duy mindmap), Web Speech API (nhận diện giọng nói và Text-to-Speech). |
 | **Backend** | Node.js (>=22 <25) + Express.js | Kiến trúc phân lớp rõ ràng: Router - Middleware - Controller - Service - Model. |
-| **Database** | MongoDB Atlas & Mongoose ODM | Lưu trữ CSDL NoSQL (15 Models quan hệ chặt chẽ, tối ưu compound index và partial unique index). |
+| **Database** | MongoDB Atlas & Mongoose ODM | Lưu trữ CSDL NoSQL (16 Models quan hệ chặt chẽ, tối ưu compound index và partial unique index). |
+| **Trợ lý AI & LLM** | OpenAI API / Gemini Compatible | Tích hợp Trợ lý AI hỏi đáp tài liệu, sinh đề thi trắc nghiệm ngầm (`unpdf`, `mammoth`, `xlsx`), và phân tích độ sẵn sàng/báo cáo kỳ thi. |
 | **Xác thực & Bảo mật** | JWT kép + Cookie HttpOnly + Helmet | `accessToken` (15 phút, gửi Header) + `refreshToken` (7 ngày, httpOnly cookie) + `tokenVersion` (thu hồi phiên tức thì) + `helmet` bảo vệ HTTP headers. |
-| **Giới hạn tần suất** | express-rate-limit (Keyed) | Đăng nhập: giới hạn theo `IP + username` chỉ tính lần thất bại; Phòng thi: 100 req/phút theo **userId** (chống nghẽn mạng LAN công ty). |
-| **Tệp tin & Đa phương tiện**| Cloudinary + Multer + mammoth + exceljs/xlsx | Upload ảnh câu hỏi đám mây qua RAM (hash SHA-256 không lưu đĩa); bóc tách đề Word (.docx) nhận diện đáp án gạch chân qua `mammoth`; đọc/xuất file Excel báo cáo & nhân sự; lưu tài liệu ôn tập trên đĩa nội bộ. |
+| **Giới hạn tần suất** | express-rate-limit (Keyed) | Đăng nhập: giới hạn theo `IP + username` chỉ tính lần thất bại; Phòng thi: 100 req/phút theo **userId**; Trợ lý AI: 20 req/phút theo **userId**. |
+| **Tệp tin & Đa phương tiện**| Cloudinary + Multer + mammoth + unpdf + exceljs/xlsx | Upload ảnh câu hỏi đám mây qua RAM (hash SHA-256 không lưu đĩa); bóc tách tài liệu PDF/Word (.docx) nhận diện đáp án gạch chân; đọc/xuất file Excel báo cáo & nhân sự; lưu tài liệu ôn tập trên đĩa nội bộ. |
 | **Tiến trình tự động (Cron)** | node-cron (Múi giờ Asia/Ho_Chi_Minh) | 1. Backup CSDL lên Google Drive lúc 03:00 (`0 3 * * *`).<br>2. Xóa tài khoản khóa lâu >6 tháng lúc 04:00 (`0 4 * * *`).<br>3. Dọn file upload tạm quá 6h mỗi giờ (`0 * * * *`).<br>4. Quét tự nộp bài thi dở dang mỗi phút (`* * * * *`). |
 
 ---
@@ -30,25 +31,29 @@ HethongZ176/
 │   ├── public/templates/                # File Excel mẫu chuẩn (Mau_Import_Cau_Hoi, Mau_Import_Nhan_Vien)
 │   └── src/
 │       ├── components/
-│       │   ├── admin/                   # AccountTab, AuditLogTab, BackupTab, OverviewTab
-│       │   ├── candidate/               # PracticeTab, ExamTab, ResultHistoryTab, RoleSelectionModal
-│       │   ├── examiner/                # DepartmentTab, ExamProposalTab, OverviewTab, QuestionBankTab, StudyDocumentTab, TopicTab
-│       │   ├── leader/                  # DepartmentReportTab, DetailedResultsTab, ExamReportTab, ExamReviewTab, OverviewTab
-│       │   ├── common/                  # SessionRevokedModal (khóa màn hình khi tokenVersion đổi)
+│       │   ├── admin/                   # AccountTab, AiSettingsTab, AuditLogTab, BackupTab, OverviewTab
+│       │   ├── candidate/               # AiAssistantChat, PracticeTab, ExamTab, ResultHistoryTab, RoleSelectionModal
+│       │   ├── examiner/                # DepartmentTab, ExamProposalTab, GenerationProgress, OverviewTab, QuestionBankTab, QuestionGeneratorTab, StudyDocumentTab, TopicTab
+│       │   ├── leader/                  # AiAssistantChat, ReadinessSection, DepartmentReportTab, DetailedResultsTab, ExamReportTab, ExamReviewTab, OverviewTab
+│       │   ├── common/                  # FirstTimeGuideModal, Select, SessionRevokedModal
 │       │   ├── ConfirmDialog.jsx        # Dialog xác nhận chuẩn thay thế window.confirm()
 │       │   ├── ExamModal.jsx            # Giao diện làm bài thi toàn màn hình (autosave, heartbeat 15s, cảnh báo 10s rời tab)
 │       │   └── ToastContext.jsx         # Quản lý thông báo toast toàn hệ thống
+│       ├── lib/                         # examPhase.js, mdTable.js, speech.js (Web Speech API)
 │       ├── pages/                       # AdminDashboard, CandidateDashboard, ExaminerDashboard, LeaderDashboard
-│       └── services/                    # Tầng giao tiếp API (api.js, auth, admin, examiner, exam-attempt, practice, report...)
+│       ├── stores/                      # question-generation.store.js
+│       └── services/                    # Tầng giao tiếp API (ai-assistant.service, api, auth, admin, examiner, exam-attempt...)
 │
 ├── server/                              # Ứng dụng Backend Express.js REST API
 │   ├── src/
 │   │   ├── config/                      # db.js, env.js (validate runtime env)
-│   │   ├── controllers/                 # Tầng điều phối request/response, ghi Audit Log chuẩn hóa
-│   │   ├── middlewares/                 # auth.middleware, rate-limit.middleware, upload.middleware
-│   │   ├── models/                      # 15 Mongoose Schemas (User, Role, Employee, Department, Topic, Question, Exam, ExamCode...)
-│   │   ├── routes/                      # Định tuyến RESTful API (/api/*)
-│   │   ├── services/                    # Nghiệp vụ cốt lõi & Cron Schedulers:
+│   │   ├── controllers/                 # ai-assistant.controller, auth, user, exam, question, report...
+│   │   ├── middlewares/                 # auth.middleware, rate-limit.middleware (aiChatRateLimiter), upload.middleware
+│   │   ├── models/                      # 16 Mongoose Schemas (AiSetting, User, Role, Employee, Department, Topic, Question, Exam...)
+│   │   ├── routes/                      # Định tuyến RESTful API (/api/* bao gồm /api/ai-assistant)
+│   │   ├── services/                    # Nghiệp vụ cốt lõi, AI LLM & Cron Schedulers:
+│   │   │   ├── ai-assistant.service.js  # Trợ lý AI hỏi đáp tài liệu, sinh đề thi & phân tích báo cáo
+│   │   │   ├── question-file-builder.js # Đóng gói câu hỏi sinh bởi AI ra file Excel/Word
 │   │   │   ├── exam.service.js          # Vòng đời đề xuất, duyệt, xuất bản, lưu trữ kỳ thi
 │   │   │   ├── exam-attempt.service.js  # Luồng thi, autosave, heartbeat, nộp bài, tính điểm
 │   │   │   ├── question.service.js      # Ngân hàng đề, chuyển đổi usage, import Excel & Word (.docx)
@@ -106,7 +111,10 @@ Các nguyên tắc sau đây **tuyệt đối không được vi phạm**:
 6. 🔒 **Bảo toàn dữ liệu kiểm toán khi dọn dẹp:** Cron job dọn tài khoản khóa lâu ngày tuyệt đối không xóa các tài khoản đã từng có lịch sử thi (`ExamCandidate > 0`) hoặc từng xuất hiện trong nhật ký kiểm toán (`AuditLog > 0`).
 7. 🔒 **Không rò rỉ dữ liệu nhạy cảm:** Không in log mật khẩu, đáp án đề thi hoặc stacktrace lỗi nội bộ ra response client ở môi trường production.
 8. 🔒 **Không dùng tài khoản thật khi kiểm thử:** Dữ liệu thử nghiệm hoặc mock data cho AI chỉ dùng thông tin giả lập, không sử dụng dữ liệu định danh thật của cán bộ, công nhân viên Nhà máy Z176.
+9. 🔒 **An toàn Trợ lý AI & Cô lập dữ liệu (AI Data Isolation):** Khi thí sinh hỏi đáp kiến thức cùng AI, backend chỉ được trích xuất nội dung từ các tài liệu (`StudyDocument`) thuộc phòng ban của thí sinh đó (hoặc phòng ban kiêm nhiệm) để đưa vào context; tuyệt đối không để lộ tài liệu của phòng ban khác.
+10. 🔒 **Kiểm duyệt 2 bước khi AI tạo câu hỏi (Human-in-the-loop):** Câu hỏi trắc nghiệm do Trợ lý AI tạo ra từ tài liệu PDF/Word tuyệt đối không được ghi trực tiếp vào cơ sở dữ liệu chính thức, mà bắt buộc phải đóng gói xuất ra tệp Excel/Word (`QuestionFileBuilder`) để Người ra đề (Examiner) kiểm tra, xác thực chuyên môn quân sự trước khi import vào hệ thống.
 
 ---
 *Bản quyền sản phẩm thuộc về tác giả Phạm Ngọc Dương - Sinh viên K67 - Khoa Công nghệ thông tin - Học viện Nông nghiệp Việt Nam.*
+
 

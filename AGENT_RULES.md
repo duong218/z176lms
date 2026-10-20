@@ -33,8 +33,12 @@
    - Tệp sao lưu nén định dạng `.gz` chuẩn BSON từ `mongodump`, tuyệt đối không dùng link chia sẻ công khai.
 3. 🔒 **Tài liệu học tập & Ôn tập nội bộ (.pdf, .docx, .xlsx)**:
    - Lưu trữ cục bộ hoàn toàn trên đĩa máy chủ nội bộ (`server/uploads/study-documents/`).
-   - Truy cập file bắt buộc qua stream có xác thực JWT (`study-document.service.js`), kiểm tra quyền tải/đọc, tuyệt đối không đặt trong thư mục public static.
-4. 🔒 **Không tùy tiện thêm SDK/Telemetry bên ngoài**:
+   - Truy cập file bắt buộc qua stream có xác thực JWT (`study-document.service.js`), kiểm tra quyền tải/đọc theo phòng ban, tuyệt đối không đặt trong thư mục public static.
+4. 🔒 **An toàn Trợ lý AI & Cô lập dữ liệu**:
+   - Khi thí sinh trò chuyện với AI, chỉ trích xuất tài liệu của phòng ban thí sinh vào prompt context (`ai-assistant.service.js`).
+   - Leader chat và AI phân tích chỉ sử dụng dữ liệu thống kê tổng hợp/mã hóa, tuyệt đối không gửi PII, email, CCCD hay câu hỏi thi chính thức ra API ngoài.
+   - AI sinh đề tự động tuân thủ Human-in-the-loop: chỉ xuất file Word/Excel tạm thời để Examiner kiểm duyệt trước khi nạp vào hệ thống.
+5. 🔒 **Không tùy tiện thêm SDK/Telemetry bên ngoài**:
    - Không cài đặt các thư viện giám sát telemetry đám mây (Google Analytics, LogRocket, Sentry SaaS...) gửi dữ liệu ra Internet khi chưa có sự phê chuẩn của Ban CNTT Nhà máy Z176.
 
 ---
@@ -45,35 +49,42 @@
 1. **Controller mỏng, Service dày (Thin Controllers, Rich Services)**:
    - Controller chỉ làm nhiệm vụ tiếp nhận `req`, trích xuất `params/query/body`, gọi Service xử lý và trả về `res.status().json()`.
    - Toàn bộ logic nghiệp vụ, tính toán điểm số, kiểm tra ràng buộc thời gian, phân quyền dữ liệu và ghi Audit Log bắt buộc nằm trong `server/src/services/`.
-2. **Quản lý dữ liệu với 15 Mongoose Models**:
-   - Mọi truy vấn và mô hình hóa dữ liệu phải tuân thủ chuẩn 15 Schema hiện có:
-     - *Hệ thống & Tổ chức:* `User`, `Role`, `Department`, `Employee`, `AuditLog`, `SystemSetting`
-     - *Ngân hàng câu hỏi:* `Topic`, `Question`, `QuestionBank` (hỗ trợ phân định `exam` vs `practice`, câu hỏi chung vs câu hỏi nghiệp vụ phòng ban)
-     - *Thi & Luyện tập:* `Exam`, `ExamCode`, `CandidateAnswer`, `Attempt`, `AttemptQuestion`, `Result`
+2. **Quản lý dữ liệu với 16 Mongoose Models**:
+   - Mọi truy vấn và mô hình hóa dữ liệu phải tuân thủ chuẩn 16 Model hiện có:
+     - *Hệ thống & Tổ chức:* `User`, `Role`, `Department`, `Employee`, `AuditLog`, `AiSetting`
+     - *Ngân hàng câu hỏi:* `Topic`, `Question`, `Answer` (hỗ trợ phân định `usage: 'exam'` vs `'practice'`, phạm vi `Common` vs `DepartmentSpecific`)
+     - *Thi & Luyện tập:* `Exam`, `ExamCode`, `ExamCodeQuestion`, `ExamCandidate`, `ExamAttempt`, `AttemptQuestion`, `CandidateAnswer`, `Result`, `PracticeSession`
+     - *Tài liệu & Thông báo:* `StudyDocument`, `Notification`
 3. **Quản trị Tiến trình nền (Cron Schedulers)**:
    - Hệ thống vận hành 4 tác vụ định kỳ tự động (`server/src/schedulers/`):
      - `backup.scheduler.js`: Sao lưu MongoDB và tải lên Google Drive (chạy lúc 03:00 hàng ngày).
-     - `temp-cleanup.scheduler.js`: Dọn dẹp tệp tin tạm phát sinh khi import/export (chạy mỗi giờ một lần).
-     - `cleanup-locked-accounts.scheduler.js`: Xóa các tài khoản bị khóa vĩnh viễn/quá hạn theo cấu hình hệ thống (chạy lúc 04:00 hàng ngày).
+     - `upload-cleanup.scheduler.js`: Dọn dẹp tệp tin tạm phát sinh khi import/export quá 6h (chạy mỗi giờ một lần).
+     - `account-purge.scheduler.js`: Xóa các tài khoản bị khóa vĩnh viễn >6 tháng chưa từng có lịch sử thi và audit log (chạy lúc 04:00 hàng ngày).
      - `abandoned-attempt.scheduler.js`: Tự động nộp bài và tính điểm cho các lượt thi `in_progress` bị bỏ rơi mất kết nối quá thời hạn `inactive_timeout` (quét định kỳ mỗi phút một lần).
 4. **Kiểm soát Tần suất (Rate Limiting)**:
    - Mọi endpoint nhạy cảm phải qua Rate Limiter chuyên biệt.
-   - Đặc biệt `loginRateLimiter`: Giới hạn theo cặp định danh `req.ip + username`, cấu hình `skipSuccessfulRequests: true` (chỉ tính các lần đăng nhập sai) để ngăn chặn tấn công Brute-force/DoS mà không ảnh hưởng người dùng hợp lệ.
+   - `loginRateLimiter`: Giới hạn theo cặp định danh `req.ip + username`, cấu hình `skipSuccessfulRequests: true` (5 lần sai / 15 phút).
+   - `examAttemptRateLimiter`: 100 req/phút/user cho phòng thi.
+   - `aiChatRateLimiter`: 20 req/phút/user cho Trợ lý AI.
 
-### 3.2. Chuẩn mực Frontend (React + Vite + Tailwind CSS)
+### 3.2. Chuẩn mực Frontend (React 19 + Vite + Tailwind CSS v4)
 1. **Quản lý State & Phiên đăng nhập**:
-   - Sử dụng `authStore.js` (Zustand) làm Single Source of Truth cho trạng thái người dùng.
    - `accessToken` lưu trong bộ nhớ; `refreshToken` lưu trong HttpOnly Cookie bảo mật cao.
-   - Lắng nghe và xử lý đặc biệt mã lỗi `AUTH_ROLE_CHANGED`: Khi Quản trị viên thay đổi vai trò người dùng trong DB, hệ thống tăng `tokenVersion`. Client tự động phát hiện qua `checkSession` / `fetchMe`, thông báo bằng modal rõ ràng và điều hướng về trang đăng nhập an toàn.
+   - Kiểm soát đơn phiên qua `tokenVersion`: Khi Quản trị viên thay đổi vai trò hoặc tài khoản đăng nhập nơi khác, hệ thống tăng `tokenVersion`. Client tự động phát hiện mã `AUTH_ACCESS_REVOKED`, hiển thị `SessionRevokedModal` và thu hồi phiên làm việc.
 2. **Cấu trúc Tab theo vai trò (Role-based Dynamic Tabs)**:
    - Hệ thống chia làm 4 Dashboard tương ứng 4 vai trò:
-     - `AdminDashboard.jsx` (tabs: Overview, Users/Accounts, Exams, Questions, Results, Settings, Backup, Audit)
-     - `ExaminerDashboard.jsx` (tabs: Overview, Questions, QuestionBanks, Exams, Results, Grading)
-     - `LeaderDashboard.jsx` (tabs: Overview, Exams, Results, EmployeeProgress, DepartmentReports)
-     - `CandidateDashboard.jsx` (tabs: Exams, Practice, History, StudyDocuments, Profile)
-   - Tất cả các Dashboard của Admin, Examiner, Leader đều tích hợp component thẻ thông tin [`UserInfoCard.jsx`](file:///d:/code%20file/Z176-main/client/src/components/dashboard/UserInfoCard.jsx) ở đầu tab Tổng quan và hiển thị "Họ tên - Mã NV" trên Header để nhận diện chính xác phiên làm việc.
+     - `AdminDashboard.jsx` (5 tab: Overview, Users, Backups, AuditLogs, AiSettings)
+     - `ExaminerDashboard.jsx` (8 tab: Overview, Topics, Departments, Questions, QuestionGenerator, StudyDocuments, Exams, QuestionQuality)
+     - `LeaderDashboard.jsx` (8 tab: Overview, ExamReview, Readiness, Anomaly, DetailedResults, DepartmentReport, ExamReport, AiAssistant)
+     - `CandidateDashboard.jsx` (Exams, Practice, History, StudyDocuments, AiAssistantChat)
 3. **Thiết kế UI/UX & Responsive**:
-   - Tuân thủ phong cách giao diện hiện đại: Bảng màu chuẩn mực (Navy Blue quân đội `#1e3a8a` / Cyan / Slate), Dark Mode & Light Mode đồng bộ (`useThemeStore.js`).
+   - Tuân thủ nghiêm ngặt [design-system.md](file:///d:/code%20file/Z176-main/design/design-system.md): Bảng màu 5 màu chức năng nghiêm túc (xanh chính `#008BC5`, xanh lá `#22C55E`, đỏ `#E53E3E`, vàng `#F6AD37`, xám `#64748B`), không dùng gradient cho các nút/thẻ chức năng.
+   - Cỡ chữ tối thiểu 16px cho nội dung đọc, vùng chạm tối thiểu 44×44px cho Mobile-first.
+   - Trực quan hóa sơ đồ tư duy bằng Mermaid.js và biểu đồ Recharts; giao tiếp giọng nói 2 chiều qua Web Speech API.
+3. **Thiết kế UI/UX & Responsive**:
+   - Tuân thủ nghiêm ngặt [design-system.md](file:///d:/code%20file/Z176-main/design/design-system.md): Bảng màu 5 màu chức năng nghiêm túc (xanh chính `#008BC5`, xanh lá `#22C55E`, đỏ `#E53E3E`, vàng `#F6AD37`, xám `#64748B`), không dùng gradient cho các nút/thẻ chức năng.
+   - Cỡ chữ tối thiểu 16px cho nội dung đọc, vùng chạm tối thiểu 44×44px cho Mobile-first.
+   - Trực quan hóa sơ đồ tư duy bằng Mermaid.js và biểu đồ Recharts; giao tiếp giọng nói 2 chiều qua Web Speech API.
    - Sử dụng thư viện icon `lucide-react`, component UI thống nhất (Button, Card, Modal, Badge, Pagination, LoadingSkeleton).
 
 ---
@@ -83,33 +94,33 @@
 ### 4.1. Quản lý Tài khoản & Hồ sơ Nhân sự (User & Employee)
 1. **Tính độc lập giữa User và Employee**:
    - `User`: Chịu trách nhiệm xác thực, tên đăng nhập, mật khẩu băm bcrypt, vai trò `roleCode`, trạng thái tài khoản.
-   - `Employee`: Chịu trách nhiệm thông tin nhân sự (Họ tên, Mã nhân viên, Phòng ban chính `departmentId`, Danh sách phòng ban kiêm nhiệm `concurrentDepartmentIds`, Chức vụ, Ngày sinh, Giới tính, SĐT, Địa chỉ).
-   - Khi chỉnh sửa thông tin cá nhân qua `PATCH /api/users/:id/profile` (`updateUserProfile`), nếu user chưa có bản ghi `Employee` thì hệ thống tự động khởi tạo và liên kết hai chiều. Trạng thái `Employee.isActive` tự động đồng bộ theo vai trò (`true` nếu là `candidate`).
+   - `Employee`: Chịu trách nhiệm thông tin nhân sự (Họ tên, Mã nhân viên, Phòng ban chính `departmentId`, Danh sách phòng ban kiêm nhiệm `extraDepartmentIds`, Chức vụ, Ngày sinh, Giới tính, SĐT, Địa chỉ).
+   - Khi chỉnh sửa thông tin cá nhân qua `PATCH /api/users/:id/profile`, nếu user chưa có bản ghi `Employee` thì hệ thống tự động khởi tạo và liên kết hai chiều. Trạng thái `Employee.isActive` tự động đồng bộ theo vai trò.
 2. **Ràng buộc khi đổi vai trò (Role Change)**:
    - Không cho phép chuyển một tài khoản sang vai trò `candidate` nếu tài khoản đó chưa có hồ sơ `Employee` (thiếu Mã nhân viên hoặc Phòng ban).
    - Không cho phép đổi vai trò nếu người dùng đang có lượt thi `in_progress` chưa hoàn tất.
    - Khi đổi vai trò thành công, bắt buộc tăng `tokenVersion` để thu hồi phiên cũ lập tức.
 
 ### 4.2. Cơ chế Ngân hàng Câu hỏi & Soạn đề Thi
-1. **Phân loại Ngân hàng câu hỏi (`QuestionBank`)**:
-   - `usageType`: Phân định rạch ròi giữa ngân hàng `exam` (dùng cho kỳ thi chính thức) và `practice` (dùng cho thí sinh tự luyện tập).
-   - Hỗ trợ câu hỏi theo phòng ban cụ thể (`departmentId`) và câu hỏi dùng chung (`departmentScope: 'common'`).
+1. **Phân loại Ngân hàng câu hỏi (`Question`)**:
+   - `usage`: Phân định rạch ròi giữa ngân hàng `exam` (dùng cho kỳ thi chính thức) và `practice` (dùng cho thí sinh tự luyện tập).
+   - Hỗ trợ câu hỏi theo phòng ban cụ thể (`departmentId`, `scope: 'DepartmentSpecific'`) và câu hỏi dùng chung (`scope: 'Common'`).
 2. **Cơ chế Bù câu hỏi chung (`allowCommonCompensation`)**:
-   - Khi tạo đề thi cho nhiều phòng ban, nếu một phòng ban thiếu câu hỏi nghiệp vụ theo tiêu chí phân bổ (dễ/vừa/khó), hệ thống tự động kích hoạt cơ chế lấy câu hỏi chung từ danh mục dùng chung để bù đắp, đảm bảo đủ số lượng câu hỏi mà không làm gián đoạn việc sinh đề.
+   - Khi tạo đề thi cho nhiều phòng ban, nếu một phòng ban thiếu câu hỏi nghiệp vụ riêng, hệ thống tự động kiểm tra công tắc `allowCommonCompensation` để bù đắp bằng câu hỏi chung.
 3. **Nhập liệu linh hoạt (Word & Excel)**:
    - Hỗ trợ Import Excel 2 bước (Upload -> Validate & Preview -> Commit).
    - Hỗ trợ Import Word `.docx` sử dụng thư viện `mammoth`, tự động bóc tách câu hỏi, đáp án, và nhận diện đáp án đúng thông qua định dạng gạch chân (`<u>`) hoặc tiền tố `*`.
 
 ### 4.3. Giám sát Lượt thi & Tính điểm Trung thực
 1. **Sinh mã đề thi (`ExamCode`) & Đề thi cá nhân hóa (`AttemptQuestion`)**:
-   - Khi thí sinh vào thi, hệ thống tạo bản ghi `AttemptQuestion` snapshot: xáo trộn thứ tự câu hỏi và thứ tự các đáp án riêng biệt cho từng thí sinh, ngăn chặn gian lận nhìn bài.
+   - Khi thí sinh vào thi, hệ thống tạo bản ghi `AttemptQuestion` snapshot: xáo trộn thứ tự câu hỏi và thứ tự các đáp án riêng biệt cho từng thí sinh bằng Fisher–Yates, ngăn chặn gian lận nhìn bài.
 2. **Heartbeat & Tự động nộp bài (Auto-submit)**:
    - Thí sinh gửi tín hiệu Heartbeat mỗi 15 giây lên server.
-   - Nếu quá thời gian làm bài hoặc client ngắt kết nối quá thời gian chờ, hệ thống nộp bài tự động.
-   - Scheduler `abandoned-attempt.scheduler.js` quét định kỳ giải quyết triệt để các lượt thi bị bỏ rơi do mất điện hoặc tắt máy đột ngột.
+   - Nếu quá thời gian làm bài hoặc client ngắt kết nối quá thời gian chờ, hệ thống nộp bài tự động (3 tầng phòng thủ: Client 10s, Server 60s, Scheduler 1 phút).
+   - Giám sát số lần rời màn hình `leaveCount` để Leader phát hiện dấu hiệu bất thường trên `AnomalyTab`.
 3. **Chấm điểm bảo mật ở Backend**:
-   - Thí sinh nộp bài qua `CandidateAnswer`, việc so khớp đáp án đúng và tính điểm số `Result` tuyệt đối thực hiện tại server (`attempt.service.js`).
-   - Kết quả xếp loại (Đạt/Không đạt, Xuất sắc/Giỏi/Khá/TB/Yếu) tính toán theo `passThresholdPercent` của kỳ thi.
+   - Thí sinh nộp bài qua `CandidateAnswer`, việc so khớp đáp án đúng và tính điểm số `Result` tuyệt đối thực hiện tại server (`exam-attempt.service.js`).
+   - Kết quả xếp loại (Đạt/Không đạt) tính toán theo `passThresholdPercent` của kỳ thi.
 
 ---
 
@@ -117,12 +128,12 @@
 
 | Loại công việc | AI được tự chủ thực hiện | Cần Dương duyệt kỹ trước khi merge |
 |---|:---:|:---:|
-| Xây dựng UI component, CSS, Dark mode, Animation, Skeleton, Dialog | ✅ | |
-| Viết CRUD cơ bản, helper định dạng ngày tháng, xuất Excel/PDF | ✅ | |
+| Xây dựng UI component, CSS, Mermaid Mindmap, Animation, Skeleton, Dialog | ✅ | |
+| Viết CRUD cơ bản, helper định dạng ngày tháng, xuất Excel/Word | ✅ | |
 | Căn chỉnh Responsive, sửa lỗi UI hiển thị, icon, tooltip | ✅ | |
 | Bổ sung Unit test, Mock data, Seeding scripts cho môi trường test | ✅ | |
 | Cập nhật tài liệu kỹ thuật, sơ đồ hệ thống, API docs | ✅ | |
-| Thay đổi cấu trúc Mongoose Schema (15 models cốt lõi) | | ⚠️ (Bắt buộc duyệt cấu trúc) |
+| Thay đổi cấu trúc Mongoose Schema (16 models cốt lõi) | | ⚠️ (Bắt buộc duyệt cấu trúc) |
 | Chỉnh sửa Middleware xác thực JWT, thu hồi phiên, Cookie bảo mật | | ⚠️ (Bắt buộc kiểm thử bảo mật) |
 | Điều chỉnh thuật toán sinh đề, bù câu hỏi, snapshot xáo đáp án | | ⚠️ (Bắt buộc kiểm thử logic) |
 | Sửa đổi logic tính điểm bài thi, điều kiện hoàn tất kỳ thi | | ⚠️ (Bắt buộc kiểm thử kết quả) |
