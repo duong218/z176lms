@@ -1,0 +1,18 @@
+[
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4fc01",
+    "examId": "65b9a8f1e4b0a1c2d3e4f701",
+    "code": "DE-001",
+    "departmentId": "65b9a8f1e4b0a1c2d3e4f302",
+    "questionSetFingerprint": "fp_kts_01_demo",
+    "createdAt": "2026-08-20T08:05:00.000Z"
+  },
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4fc02",
+    "examId": "65b9a8f1e4b0a1c2d3e4f701",
+    "code": "DE-002",
+    "departmentId": "65b9a8f1e4b0a1c2d3e4f303",
+    "questionSetFingerprint": "fp_xdm1_01_demo",
+    "createdAt": "2026-08-20T08:05:00.000Z"
+  }
+]

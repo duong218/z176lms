@@ -1,0 +1,34 @@
+[
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4ee01",
+    "userId": "65b9a8f1e4b0a1c2d3e4f004",
+    "topicIds": [
+      "65b9a8f1e4b0a1c2d3e4f402"
+    ],
+    "difficulty": "all",
+    "mode": "exam",
+    "totalQuestions": 1,
+    "correctCount": 1,
+    "timeLimitSec": 600,
+    "status": "submitted",
+    "questions": [
+      {
+        "questionId": "65b9a8f1e4b0a1c2d3e4f504",
+        "selectedAnswerIds": [
+          "65b9a8f1e4b0a1c2d3e4f609"
+        ],
+        "isCorrect": true,
+        "checked": true,
+        "correctAnswerIds": [
+          "65b9a8f1e4b0a1c2d3e4f609"
+        ],
+        "optionIds": [
+          "65b9a8f1e4b0a1c2d3e4f609",
+          "65b9a8f1e4b0a1c2d3e4f610"
+        ]
+      }
+    ],
+    "startedAt": "2026-09-03T14:00:00.000Z",
+    "submittedAt": "2026-09-03T14:05:00.000Z"
+  }
+]

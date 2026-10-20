@@ -1,0 +1,15 @@
+[
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4fe01",
+    "key": "default",
+    "isEnabled": true,
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "apiKey": "AIzaSyDemoFakeApiKeyPlaceholder12345",
+    "model": "gemini-flash-latest",
+    "systemPrompt": "Bạn là Trợ lý AI học tập nội bộ của Nhà máy Z176. Hãy giải đáp dựa trên tài liệu đính kèm, hỗ trợ sơ đồ tư duy Mermaid và giữ văn phong trang trọng, chuẩn mực quân đội.",
+    "maxDocChars": 60000,
+    "updatedBy": "65b9a8f1e4b0a1c2d3e4f001",
+    "createdAt": "2026-06-01T08:00:00.000Z",
+    "updatedAt": "2026-06-01T08:00:00.000Z"
+  }
+]

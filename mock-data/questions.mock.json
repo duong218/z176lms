@@ -6,6 +6,7 @@
     "answerType": "single",
     "difficulty": "easy",
     "scope": "Common",
+    "usage": "exam",
     "topicId": "65b9a8f1e4b0a1c2d3e4f401",
     "imageUrl": "",
     "imageCloudinaryId": "",
@@ -20,6 +21,7 @@
     "answerType": "multiple",
     "difficulty": "medium",
     "scope": "Common",
+    "usage": "exam",
     "topicId": "65b9a8f1e4b0a1c2d3e4f402",
     "imageUrl": "https://res.cloudinary.com/demo/image/upload/v1234567/z176_electrical_safety.jpg",
     "imageCloudinaryId": "z176_electrical_safety",
@@ -34,6 +36,7 @@
     "answerType": "single",
     "difficulty": "hard",
     "scope": "DepartmentSpecific",
+    "usage": "exam",
     "topicId": "65b9a8f1e4b0a1c2d3e4f403",
     "departmentId": "65b9a8f1e4b0a1c2d3e4f303",
     "imageUrl": "",
@@ -41,5 +44,20 @@
     "isActive": true,
     "createdBy": "65b9a8f1e4b0a1c2d3e4f002",
     "createdAt": "2026-06-06T08:10:00.000Z"
+  },
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4f504",
+    "content": "Khoảng cách an toàn tối thiểu giữa các khối kiện nguyên liệu dệt may trong kho thành phẩm là bao nhiêu mét?",
+    "questionKind": "theory",
+    "answerType": "single",
+    "difficulty": "medium",
+    "scope": "Common",
+    "usage": "practice",
+    "topicId": "65b9a8f1e4b0a1c2d3e4f402",
+    "imageUrl": "",
+    "imageCloudinaryId": "",
+    "isActive": true,
+    "createdBy": "65b9a8f1e4b0a1c2d3e4f002",
+    "createdAt": "2026-06-07T09:00:00.000Z"
   }
 ]

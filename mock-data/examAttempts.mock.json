@@ -3,21 +3,25 @@
     "_id": "65b9a8f1e4b0a1c2d3e4f901",
     "examCandidateId": "65b9a8f1e4b0a1c2d3e4fb01",
     "attemptType": "official",
+    "departmentId": "65b9a8f1e4b0a1c2d3e4f302",
     "startedAt": "2026-09-02T09:00:00.000Z",
     "submittedAt": "2026-09-02T09:45:00.000Z",
     "status": "submitted",
     "expiresAt": "2026-09-02T09:45:00.000Z",
-    "lastActiveAt": "2026-09-02T09:44:50.000Z"
+    "lastActiveAt": "2026-09-02T09:44:50.000Z",
+    "leaveCount": 0
   },
   {
     "_id": "65b9a8f1e4b0a1c2d3e4f902",
     "examCandidateId": "65b9a8f1e4b0a1c2d3e4fb02",
     "attemptType": "official",
+    "departmentId": "65b9a8f1e4b0a1c2d3e4f303",
     "startedAt": "2026-09-02T10:00:00.000Z",
     "submittedAt": "2026-09-02T10:15:00.000Z",
     "status": "expired",
     "expiresAt": "2026-09-02T10:45:00.000Z",
     "lastActiveAt": "2026-09-02T10:14:00.000Z",
-    "autoSubmitReason": "inactive_timeout"
+    "autoSubmitReason": "inactive_timeout",
+    "leaveCount": 3
   }
 ]

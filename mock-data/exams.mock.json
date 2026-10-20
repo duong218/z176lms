@@ -9,6 +9,8 @@
     "totalQuestions": 30,
     "commonQuestionCount": 20,
     "departmentQuestionCount": 10,
+    "allowCommonCompensation": false,
+    "departmentScope": "all",
     "status": "published",
     "passThresholdPercent": 70,
     "createdBy": "65b9a8f1e4b0a1c2d3e4f002",
@@ -27,6 +29,12 @@
     "totalQuestions": 10,
     "commonQuestionCount": 10,
     "departmentQuestionCount": 0,
+    "allowCommonCompensation": true,
+    "departmentScope": "selected",
+    "allowedDepartmentIds": [
+      "65b9a8f1e4b0a1c2d3e4f302",
+      "65b9a8f1e4b0a1c2d3e4f303"
+    ],
     "status": "draft",
     "passThresholdPercent": 80,
     "createdBy": "65b9a8f1e4b0a1c2d3e4f002",

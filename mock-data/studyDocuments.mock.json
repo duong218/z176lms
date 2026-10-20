@@ -1,0 +1,27 @@
+[
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4fd01",
+    "topicId": "65b9a8f1e4b0a1c2d3e4f401",
+    "title": "Sổ tay Văn hóa Doanh nghiệp và Nội quy Z176 (Tài liệu mẫu)",
+    "filePath": "uploads/documents/demo_so_tay_noi_quy_z176.pdf",
+    "originalFileName": "so_tay_noi_quy_z176.pdf",
+    "mimeType": "application/pdf",
+    "scope": "Common",
+    "uploadedBy": "65b9a8f1e4b0a1c2d3e4f002",
+    "isActive": true,
+    "createdAt": "2026-06-05T08:00:00.000Z"
+  },
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4fd02",
+    "topicId": "65b9a8f1e4b0a1c2d3e4f403",
+    "title": "Quy trình vận hành máy may công nghiệp Jack K5 (Tài liệu mẫu)",
+    "filePath": "uploads/documents/demo_quy_trinh_van_hanh_jack_k5.docx",
+    "originalFileName": "quy_trinh_van_hanh_jack_k5.docx",
+    "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "scope": "DepartmentSpecific",
+    "departmentId": "65b9a8f1e4b0a1c2d3e4f303",
+    "uploadedBy": "65b9a8f1e4b0a1c2d3e4f002",
+    "isActive": true,
+    "createdAt": "2026-06-05T08:30:00.000Z"
+  }
+]

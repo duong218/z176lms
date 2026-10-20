@@ -1,0 +1,22 @@
+[
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4ff01",
+    "recipientUserId": "65b9a8f1e4b0a1c2d3e4f004",
+    "type": "exam_published",
+    "title": "Kỳ thi mới đã được phát hành",
+    "message": "Kỳ thi 'Kỳ thi chuyên môn định kỳ Q3 - Z176 (Demo)' đã chính thức mở. Hãy vào phòng thi để làm bài.",
+    "examId": "65b9a8f1e4b0a1c2d3e4f701",
+    "isRead": false,
+    "createdAt": "2026-08-20T08:05:00.000Z"
+  },
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4ff02",
+    "recipientUserId": "65b9a8f1e4b0a1c2d3e4f003",
+    "type": "exam_submitted",
+    "title": "Đề xuất kỳ thi mới chờ duyệt",
+    "message": "Người ra đề vừa gửi đề xuất kỳ thi 'Kỳ thi chuyên môn định kỳ Q3 - Z176 (Demo)' để chờ phê duyệt.",
+    "examId": "65b9a8f1e4b0a1c2d3e4f701",
+    "isRead": true,
+    "createdAt": "2026-08-15T08:05:00.000Z"
+  }
+]

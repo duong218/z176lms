@@ -54,5 +54,19 @@
     "content": "Đường vắt sổ 5 chỉ siêu bền",
     "isCorrect": true,
     "sortOrder": 2
+  },
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4f609",
+    "questionId": "65b9a8f1e4b0a1c2d3e4f504",
+    "content": "Tối thiểu 0.5 mét",
+    "isCorrect": true,
+    "sortOrder": 1
+  },
+  {
+    "_id": "65b9a8f1e4b0a1c2d3e4f610",
+    "questionId": "65b9a8f1e4b0a1c2d3e4f504",
+    "content": "Không cần khoảng cách nếu xếp gọn gàng",
+    "isCorrect": false,
+    "sortOrder": 2
   }
 ]
