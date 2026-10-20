@@ -40,6 +40,7 @@
 | **Cấp thêm lượt thi chính thức cho thí sinh** (`grant-attempt`) | ❌ Không có quyền | ❌ Không có quyền | **Toàn quyền** | ❌ Không có quyền |
 | **Xác nhận phòng ban dự thi cho nhân sự kiêm nhiệm** | ❌ | ❌ | Hỗ trợ xác nhận hộ | **Tự chọn & xác nhận** |
 | **Xem tài liệu ôn tập được cấp quyền theo phòng ban** | ✅ | ✅ | ✅ | **Toàn quyền** |
+| **Hỏi đáp Trợ lý AI (Mindmap, TTS, Speech-to-Text)** | Cấu hình tham số LLM | Sinh đề tự động bằng AI | Hỏi đáp báo cáo/kỳ thi | **Hỏi đáp tài liệu PB** |
 | **Tham gia làm bài thi trắc nghiệm (Autosave, Heartbeat, 3 Tầng Guard)** | ❌ Không làm bài | ❌ Không làm bài | ❌ Không làm bài | **Toàn quyền** |
 | **Luyện tập / Thi thử (Practice Mode)** | ❌ | ❌ | ❌ | **Toàn quyền** |
 | **Xem Lịch sử kết quả thi cá nhân** | ❌ | ❌ | ❌ | **Toàn quyền** |
@@ -99,6 +100,14 @@ Vai trò Quản trị viên chịu trách nhiệm cao nhất về hạ tầng ng
 *   **Truy cập Nhật ký (`GET /api/audit-logs`)**: Admin có quyền tra cứu toàn bộ vết hoạt động trong hệ thống.
 *   **Bộ lọc chi tiết**: Lọc theo người thực hiện (`actorUserId`), loại tài nguyên (`resourceType`), hành động (`action`: tạo/sửa/xóa/đăng nhập/khóa...), khoảng thời gian.
 *   **Thông tin chi tiết**: Mỗi bản ghi lưu trữ địa chỉ IP client, thời gian thực hiện, metadata trước và sau khi thay đổi (diff) và trạng thái thành công/thất bại.
+
+### 2.4. Cấu hình Trợ lý AI Hệ thống (`AiSettingsTab`)
+*   **Quản lý tham số kết nối LLM (`GET/PUT /api/ai-assistant/settings`)**:
+    *   Bật/tắt toàn hệ thống (`isEnabled`).
+    *   Cấu hình endpoint OpenAI-compatible (`baseUrl`, ví dụ Google Gemini, Groq, hoặc máy chủ cục bộ Ollama/vLLM).
+    *   Cấu hình `model` (ví dụ `gemini-flash-latest`), `apiKey` bảo mật lưu trữ phía server.
+    *   Tùy chỉnh `systemPrompt` (định hướng phong cách trợ lý học tập chuẩn mực quân đội, hỗ trợ sơ đồ tư duy Mermaid).
+    *   Thiết lập giới hạn trích xuất tài liệu `maxDocChars` (tối đa 400.000 ký tự) nhằm bảo vệ context window và kiểm soát chi phí API.
 
 ---
 
@@ -174,6 +183,14 @@ Người ra đề chịu trách nhiệm xây dựng nội dung chuyên môn: qu�
     *   Nếu Leader duyệt -> Nhận thông báo `exam_approved`.
     *   Nếu Leader từ chối -> Nhận thông báo `exam_rejected` kèm lý do từ chối cụ thể (`rejectionReason`).
 
+### 3.5. Soạn câu hỏi tự động bằng Trợ lý AI (`QuestionGeneratorTab`)
+*   **Trợ lý AI tạo đề (`POST /api/ai-assistant/generate-questions`)**:
+    *   Examiner chọn chủ đề, phòng ban, số lượng câu hỏi cần sinh và tải file tài liệu tham khảo (.pdf, .docx, .xlsx).
+    *   Backend bóc tách nội dung tài liệu (`unpdf`, `mammoth`), phân tích cấu trúc kiến thức và gọi LLM tạo các câu hỏi trắc nghiệm kèm đáp án và giải thích chi tiết.
+    *   **Nguyên tắc Human-in-the-loop (Kiểm duyệt 2 bước)**: Kết quả tạo từ AI **không ghi thẳng vào database** mà tự động đóng gói xuất ra tệp Excel/Word theo đúng mẫu nhập đề chuẩn của Z176.
+    *   Examiner tải file về, rà soát tính chuẩn xác chuyên môn quân sự, chỉnh sửa nếu cần rồi mới thực hiện nạp vào hệ thống qua tính năng Import thông thường.
+    *   Theo dõi tiến trình sinh đề thời gian thực trên giao diện `GenerationProgress.jsx`.
+
 ---
 
 ## 4. ROLE 3: NGƯỜI DUYỆT ĐỀ (LEADER - `leader`)
@@ -242,6 +259,12 @@ Người duyệt đề là cán bộ quản lý chịu trách nhiệm thẩm đ�
 *   **Theo bài thi (`GET /api/reports/by-exam`)**: Phân tích kết quả, phổ điểm của từng kỳ thi cụ thể.
 *   **Kết quả chi tiết (`GET /api/reports/results`)**: Danh sách kết quả điểm số từng cá nhân thí sinh. Hỗ trợ lọc theo phòng ban, trạng thái đạt/không đạt.
 *   **Xuất Báo cáo Excel chuyên nghiệp (`exceljs`)**: Tải file Excel danh sách kết quả tổng hợp chi tiết hoặc báo cáo chuyên sâu từng bài thi.
+*   **Phân tích Chất lượng Câu hỏi & Dấu hiệu Bất thường**: Đánh giá độ phân cách, tỷ lệ chọn từng phương án, và phát hiện các trường hợp rời màn hình thi nhiều lần (`leaveCount`).
+*   **Trợ lý AI Phân tích Kỳ thi & Báo cáo (`POST /api/ai-assistant/leader-chat`, `ReadinessSection.jsx`)**:
+    *   Leader hỏi đáp với AI về tình hình sẵn sàng tổ chức thi, phân tích độ phủ câu hỏi giữa các phòng ban.
+    *   Hỏi đáp tổng hợp số liệu báo cáo kỳ thi: so sánh tỷ lệ đạt giữa các phân xưởng, tìm ra các nội dung câu hỏi thí sinh hay làm sai nhất.
+    *   **Nguyên tắc Bảo mật Mock Data**: Toàn bộ dữ liệu gửi lên LLM đã được làm sạch và ẩn danh (chỉ gửi ID phòng ban, số liệu thống kê tổng hợp; không gửi CCCD, email hay họ tên thật).
+    *   Tự động vẽ trực quan sơ đồ tư duy (Mindmap) hoặc biểu đồ phân tích bằng cú pháp Mermaid ngay trong cửa sổ chat.
 
 ---
 
@@ -272,8 +295,14 @@ Thí sinh là đối tượng trung tâm tham gia quá trình ôn tập, luyện
 *   **Phân quyền xem tài liệu (`GET /api/study-documents/candidate`)**:
     *   Thí sinh chỉ nhìn thấy danh mục tài liệu phù hợp: Tài liệu Dùng chung (`Common`) và tài liệu Riêng đúng phòng ban của thí sinh (hoặc phòng ban kiêm nhiệm).
     *   Xem trực tiếp PDF trên trình duyệt hoặc tải về máy tính an toàn qua xác thực JWT.
-*   **Chế độ Thi thử (Practice Mode)**:
+*   **Hỏi đáp Kiến thức cùng Trợ lý AI (`POST /api/ai-assistant/chat`, `AiAssistantChat.jsx`)**:
+    *   Thí sinh trò chuyện trực tiếp với Trợ lý AI về các nội quy, quy trình kỹ thuật và nghiệp vụ chuyên môn.
+    *   **Cô lập dữ liệu theo phòng ban**: Hệ thống chỉ trích xuất ngữ cảnh từ các tài liệu học tập (`StudyDocument`) mà thí sinh được phân quyền xem để nạp vào prompt cho AI trả lời.
+    *   **Trực quan hóa Sơ đồ tư duy (Mindmap)**: Tự động render sơ đồ tư duy bằng thư viện [Mermaid.js](https://mermaid.js.org/) để hệ thống hóa kiến thức trực quan.
+    *   **Giao tiếp Giọng nói 2 chiều**: Tích hợp Web Speech API cho phép thí sinh ra lệnh bằng giọng nói (Speech-to-Text) và nghe AI đọc câu trả lời (Text-to-Speech).
+*   **Chế độ Luyện tập Cá nhân (Practice Sessions)**:
     *   Cho phép thí sinh luyện tập trước với ngân hàng câu hỏi có gắn nhãn `usage: 'practice'`.
+    *   Lựa chọn chế độ `instant` (kiểm tra đúng/sai và xem giải thích ngay từng câu) hoặc chế độ `exam` (làm hết bài có bấm giờ rồi mới nộp và chấm điểm).
     *   Không giới hạn số lượt thi thử và không ảnh hưởng đến điểm số chính thức.
 
 ### 5.2. Luồng Làm bài thi Trắc nghiệm (Exam Execution Flow)

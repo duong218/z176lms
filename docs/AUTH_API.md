@@ -51,6 +51,10 @@ Hệ thống nghiêm ngặt áp dụng nguyên tắc **1 tài khoản chỉ đư
    - Sử dụng định danh tài khoản: `keyGenerator: (req) => req.auth?.userId ?? req.ip`.
    - Giới hạn: **100 req/phút/user**.
    - **Lợi ích**: Hàng trăm thí sinh trong cùng phân xưởng/phòng máy chia sẻ chung 1 IP NAT công ty vẫn có hạn mức riêng biệt 100 req/phút/người, không bị nghẽn hay chặn nhầm khi gửi heartbeat (15s) và autosave liên tục.
+3. **Trợ lý AI (`aiChatRateLimiter` - `/api/ai-assistant/*`)**:
+   - Sử dụng định danh tài khoản: `keyGenerator: (req) => req.auth?.userId ?? req.ip`.
+   - Giới hạn: **20 req/phút/user**.
+   - **Mục tiêu**: Ngăn chặn quá tải tài nguyên LLM, hạn chế lạm dụng gửi spam câu hỏi và kiểm soát chi phí gọi API bên thứ ba.
 
 ---
 

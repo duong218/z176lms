@@ -15,12 +15,12 @@ Thư mục này chứa tài liệu đặc tả kỹ thuật, mô hình dữ li�
   - [design/design-system.md](file:///d:/code%20file/Z176-main/design/design-system.md) — Hệ thống thiết kế chuẩn UI/UX cho người dùng 30–60 tuổi (Inter, 5 màu chức năng, Mobile-first).
 
 - **Tài liệu Kỹ thuật Chi tiết (`docs/`)**:
-  - [ACTIVE.md](file:///d:/code%20file/Z176-main/docs/ACTIVE.md) — Đặc tả chi tiết luồng hoạt động 4 vai trò (Admin, Examiner, Leader, Candidate) và bảng mã lỗi.
-  - [MONGOOSE_SCHEMA.md](file:///d:/code%20file/Z176-main/docs/MONGOOSE_SCHEMA.md) — Mô hình cơ sở dữ liệu MongoDB/Mongoose (ERD, Collections, Indexing).
-  - [AUTH_API.md](file:///d:/code%20file/Z176-main/docs/AUTH_API.md) — Cơ chế xác thực Dual Token (JWT in-memory + HttpOnly Cookie), quản lý phiên đơn lẻ (`tokenVersion`), và Rate Limiting.
+  - [ACTIVE.md](file:///d:/code%20file/Z176-main/docs/ACTIVE.md) — Đặc tả chi tiết luồng hoạt động 4 vai trò (Admin, Examiner, Leader, Candidate), bảng mã lỗi và tích hợp Trợ lý AI (Mindmap Mermaid, sinh đề AI, hỏi đáp báo cáo).
+  - [MONGOOSE_SCHEMA.md](file:///d:/code%20file/Z176-main/docs/MONGOOSE_SCHEMA.md) — Mô hình cơ sở dữ liệu MongoDB/Mongoose (ERD, Collections, Indexing, `AiSetting`, `PracticeSession`).
+  - [AUTH_API.md](file:///d:/code%20file/Z176-main/docs/AUTH_API.md) — Cơ chế xác thực Dual Token (JWT in-memory + HttpOnly Cookie), quản lý phiên đơn lẻ (`tokenVersion`), và Rate Limiting (`aiChatRateLimiter`).
   - [sinh-de-tu-dong.md](file:///d:/code%20file/Z176-main/docs/sinh-de-tu-dong.md) — Thuật toán sinh đề tự động, cơ chế bù câu hỏi chung (`allowCommonCompensation`), phạm vi phòng ban, và khóa concurrency (`publishLockedAt`).
-  - [luong-lam-bai-thi.md](file:///d:/code%20file/Z176-main/docs/luong-lam-bai-thi.md) — Luồng thi trắc nghiệm realtime: phòng ban đóng băng, autosave, heartbeat 15s, và 3 tầng tự động nộp bài chống gian lận.
-  - [THNGOAILE.md](file:///d:/code%20file/Z176-main/docs/THNGOAILE.md) — Tổng hợp 23+ tình huống ngoại lệ (Edge Cases) đã khắc phục và các hạn chế kỹ thuật của hệ thống.
+  - [luong-lam-bai-thi.md](file:///d:/code%20file/Z176-main/docs/luong-lam-bai-thi.md) — Luồng thi trắc nghiệm realtime: phòng ban đóng băng, autosave, heartbeat 15s, theo dõi rời màn hình (`leaveCount`) và 3 tầng tự động nộp bài chống gian lận.
+  - [THNGOAILE.md](file:///d:/code%20file/Z176-main/docs/THNGOAILE.md) — Tổng hợp các tình huống ngoại lệ (Edge Cases) đã khắc phục (bao gồm an toàn Trợ lý AI & context window) và các hạn chế kỹ thuật của hệ thống.
 
 ---
 

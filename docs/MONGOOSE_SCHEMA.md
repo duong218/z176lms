@@ -27,11 +27,13 @@ erDiagram
   Department ||--o{ ExamAttempt : "departmentId (đóng băng lượt thi)"
   ExamAttempt ||--o{ CandidateAnswer : examAttemptId
   ExamAttempt ||--o| Result : examAttemptId
+  User ||--o{ PracticeSession : userId
   Topic ||--o{ StudyDocument : topicId
   Department ||--o{ StudyDocument : departmentId
   User ||--o{ StudyDocument : createdBy
   User ||--o{ Notification : recipientId
   User ||--o{ AuditLog : actorUserId
+  User ||--o| AiSetting : updatedBy
 ```
 
 ---
@@ -55,7 +57,9 @@ erDiagram
 | `AttemptQuestion` | `attemptquestions` | Snapshot cố định thứ tự câu hỏi và thứ tự các đáp án xáo ngẫu nhiên riêng cho từng lượt thi cá nhân (Fisher–Yates shuffle). |
 | `CandidateAnswer` | `candidateanswers` | Bảng ghi nhận chi tiết các đáp án thí sinh đã lựa chọn cho mỗi câu hỏi khi nộp bài và trong quá trình autosave. |
 | `Result` | `results` | Kết quả điểm số cuối cùng của lượt thi: lưu điểm (thang 100), số câu đúng (`score`), tổng số câu, và trạng thái Đạt/Không đạt (`passed`). |
+| `PracticeSession` | `practicesessions` | Lượt luyện tập tự do của thí sinh. Hỗ trợ chế độ `instant` (kiểm tra đúng/sai ngay từng câu) hoặc `exam` (làm hết rồi mới chấm), lưu snapshot đáp án (`correctAnswerIds`, `optionIds`). |
 | `StudyDocument` | `studydocuments` | Tệp tin tài liệu ôn tập được Examiner upload. **Lưu trữ hoàn toàn trên ổ đĩa máy chủ nội bộ (`uploadDir`)**, phân quyền theo `scope` (`Common` hoặc `DepartmentSpecific` theo `departmentId`). |
+| `AiSetting` | `aisettings` | Cấu hình tham số Trợ lý AI hệ thống (Singleton `key: 'default'`): `isEnabled`, `baseUrl` (tương thích OpenAI API), `apiKey`, `model`, `systemPrompt`, và `maxDocChars` (giới hạn ký tự tài liệu đưa vào context LLM). |
 | `Notification` | `notifications` | Hộp thư thông báo in-app gửi tin nhắn cho cán bộ và thí sinh (`recipientId`, `title`, `message`, `type`, `isRead`). |
 | `AuditLog` | `auditlogs` | Nhật ký lưu lại toàn bộ hành động thay đổi dữ liệu của Admin, Examiner, Leader và các tiến trình tự động hệ thống (`actorUserId`, `action`, `resourceType`, `metadata`, `ipAddress`). |
 
@@ -89,5 +93,11 @@ erDiagram
 *   **Tự động Xóa cứng Tài khoản Khóa lâu ngày (`Account Purge`)**:
     *   Tài khoản bị khóa (`isActive: false`) lưu mốc thời gian `lockedAt`.
     *   Cron job 04:00 hàng ngày tự động xóa cứng các tài khoản có `lockedAt <= now - 6 tháng` với điều kiện **chưa từng có dấu vết lịch sử thi** (`ExamCandidate = 0`) và **chưa từng ghi audit log** (`AuditLog = 0`).
+*   **Luyện tập tự do (`PracticeSession`) & Snapshot đề ôn**:
+    *   Thí sinh tự do luyện tập không giới hạn theo chủ đề, độ khó, hoặc chế độ (`instant` / `exam`).
+    *   Mỗi câu hỏi trong phiên luyện tập lưu snapshot `correctAnswerIds` và `optionIds` xáo ngẫu nhiên để đảm bảo việc sửa/xóa câu hỏi sau này không làm sai lệch bài đã làm dở.
+*   **Cấu hình Trợ lý AI (`AiSetting`)**:
+    *   Bản ghi Singleton có `key: 'default'` với `immutable: true`.
+    *   Chỉ Quản trị viên (`admin`) có quyền cấu hình endpoint LLM tương thích OpenAI, mô hình, API key và system prompt. Giới hạn `maxDocChars` (mặc định 60.000 ký tự) ngăn chặn quá tải context window.
 
 

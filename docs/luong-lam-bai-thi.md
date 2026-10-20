@@ -20,6 +20,7 @@ Quy trình tổ chức thi trắc nghiệm tại Nhà máy Z176 đòi hỏi tín
 - **Chống mất dữ liệu do sự cố**: Nếu mất kết nối mạng, vô tình F5/reload trang, hoặc máy tính bị treo phải chuyển sang điện thoại -> thí sinh vẫn tiếp tục được bài thi đang dở (`resumed: true`) với nguyên vẹn các câu trả lời đã chọn trước đó.
 - **Xáo trộn câu hỏi và đáp án cá nhân hóa**: Tránh nhìn bài nhau bằng cách xáo ngẫu nhiên thứ tự câu hỏi và thứ tự các phương án trả lời riêng biệt cho từng thí sinh (`AttemptQuestion`).
 - **Phát hiện gian lận và bỏ thi (3 Tầng Bảo vệ)**: Tự động phát hiện khi thí sinh rời phòng thi/bỏ tab để đếm ngược 10s, cưỡng chế nộp bài ở mọi request sau 60s idle, và quét bằng background scheduler mỗi 1 phút.
+- **Giám sát Chuyển tab & Rời màn hình (`leaveCount`)**: Hệ thống tự động đếm số lần thí sinh chuyển tab hoặc rời ứng dụng thi (`leaveCount`) và lưu trên `ExamAttempt` để hỗ trợ Người duyệt đề (Leader) thẩm định dấu hiệu bất thường trên giao diện `AnomalyTab`.
 - **Bảo mật tuyệt đối đáp án**: Đáp án đúng (`isCorrect`) và logic chấm điểm được bảo vệ hoàn toàn tại máy chủ (server-side), không bao giờ gửi cờ đáp án đúng xuống trình duyệt trong lúc làm bài.
 
 ---

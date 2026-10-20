@@ -59,6 +59,18 @@ Tài liệu này tổng hợp các tình huống ngoại lệ (edge cases) mà h
 
 **Cách khắc phục:** Hệ thống dựng **3 tầng phòng thủ song song**:
 
+---
+
+### A7. Trợ lý AI sinh câu hỏi lỗi hoặc vượt quá Context Window (AI Question Generation Safety)
+
+**Tình huống:** Tệp tài liệu ôn tập (.pdf, .docx) quá dài vượt quá giới hạn token của LLM, hoặc AI phản hồi định dạng JSON bị khuyết thiếu/sai cú pháp câu hỏi trắc nghiệm.
+
+**Cách khắc phục:**
+- Hàm `extractDocumentText` chủ động cắt ngắn văn bản theo trần `maxDocChars` cấu hình trong `AiSetting` (mặc định 60.000 ký tự) để đảm bảo không bị tràn context.
+- Cơ chế parse JSON phòng thủ có fallback trích xuất khối mã Markdown ` ```json ... ``` ` và kiểm tra cấu trúc từng câu hỏi trước khi tạo file.
+- **Human-in-the-loop**: Kết quả sinh đề không ghi thẳng vào database mà nén thành file Word/Excel (`QuestionFileBuilder`) để Examiner tải về kiểm duyệt bằng mắt trước khi nạp vào ngân hàng câu hỏi.
+
+
 | Tầng | Vị trí | Thời gian | Cơ chế |
 |---|---|---|---|
 | **Tầng 1** | Client (`ExamModal.jsx`) | 10 giây | Sự kiện `visibilitychange` / `blur` → hiện cảnh báo đếm ngược 10s → quá hạn tự gọi `submitAttempt` |
