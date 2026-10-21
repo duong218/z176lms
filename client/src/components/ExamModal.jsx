@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X,
+  Check,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -11,10 +12,10 @@ import {
   RefreshCw,
   Loader2,
   Circle,
-  CheckSquare,
-  Square,
   List,
-  ChevronLeft,
+  ListChecks,
+  Flag,
+  Info,
   ShieldAlert,
   Lock,
   Building2,
@@ -32,13 +33,72 @@ import {
 import { useScrollLock } from '../hooks/useScrollLock';
 
 // ── Cỡ chữ khi làm bài: 3 mức cố định, nhớ theo THIẾT BỊ (không theo kỳ thi) ──
-// Mức 0 = giữ nguyên class gốc (q/a = null -> không gắn style inline), nên giao diện mặc định không đổi.
+// q = cỡ chữ câu hỏi, a = cỡ chữ đáp án (px). Mức mặc định đã >= 17px theo design-system (Body Lớn).
 const FONT_KEY = 'z176.examFontLevel';
 const FONT_LEVELS = [
-  { label: 'Vừa', q: null, a: null },
-  { label: 'Lớn', q: 20, a: 18 },
-  { label: 'Rất lớn', q: 24, a: 21 },
+  { label: 'Vừa', q: 19, a: 17 },
+  { label: 'Lớn', q: 22, a: 20 },
+  { label: 'Rất lớn', q: 26, a: 23 },
 ];
+
+// ── Thành phần giao diện dùng lại (chỉ hiển thị, không chứa nghiệp vụ) ─────────
+// Nút theo design-system: cao >= 52px, bo 10px, chữ 16px/600, focus ring rõ.
+const BTN_BASE =
+  'min-h-[52px] px-5 rounded-[10px] text-base font-semibold inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30';
+const BTN_PRIMARY = `${BTN_BASE} bg-[#008BC5] text-white hover:bg-[#0693E3] active:bg-[#006BA1]`;
+const BTN_SECONDARY = `${BTN_BASE} bg-white text-[#006BA1] border-[1.5px] border-[#008BC5] hover:bg-[#F0F9FF] active:bg-[#F0F9FF]`;
+const BTN_SUCCESS = `${BTN_BASE} bg-[#15803D] text-white hover:bg-[#166534] active:bg-[#14532D]`;
+
+const TONES = {
+  warn: { bg: 'bg-[#FFF7E6]', icon: 'text-[#B45309]' },
+  danger: { bg: 'bg-[#FEECEC]', icon: 'text-[#C53030]' },
+  success: { bg: 'bg-[#F0FDF4]', icon: 'text-[#166534]' },
+  info: { bg: 'bg-[#EAF6FF]', icon: 'text-[#006BA1]' },
+};
+
+/** Màn hình trạng thái giữa trang: icon + tiêu đề + nội dung + nút. Dùng cho lỗi, tự nộp, bị chặn tab... */
+const StatusScreen = ({ icon: Icon, tone = 'info', title, children, footer }) => (
+  <div
+    className="flex-1 overflow-y-auto bg-[#F6F8FA] p-6 flex flex-col items-center justify-center text-center gap-4"
+    data-lenis-prevent
+  >
+    <div className={`w-20 h-20 rounded-full flex items-center justify-center ${TONES[tone].bg}`}>
+      <Icon className={`w-10 h-10 ${TONES[tone].icon}`} aria-hidden="true" />
+    </div>
+    <h3 className="text-2xl font-bold text-[#0F172A] leading-snug">{title}</h3>
+    <div className="text-base text-[#334155] max-w-md space-y-3 leading-relaxed">{children}</div>
+    {footer}
+  </div>
+);
+
+/** Vòng tròn điểm số (SVG phẳng, không gradient). Màu theo kết quả, kèm chữ số ở giữa. */
+const ScoreRing = ({ score, passed }) => {
+  const r = 70;
+  const c = 2 * Math.PI * r;
+  const pct = Math.min(100, Math.max(0, Number(score) || 0));
+  return (
+    <div className="relative w-44 h-44 mx-auto" role="img" aria-label={`Điểm ${pct} trên 100`}>
+      <svg viewBox="0 0 160 160" className="w-full h-full -rotate-90" aria-hidden="true">
+        <circle cx="80" cy="80" r={r} fill="none" stroke="#E2E8F0" strokeWidth="12" />
+        <circle
+          cx="80"
+          cy="80"
+          r={r}
+          fill="none"
+          stroke={passed ? '#22C55E' : '#E53E3E'}
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct / 100)}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-5xl font-extrabold text-[#0F172A] leading-none">{pct}</span>
+        <span className="text-base text-[#334155] mt-1">/ 100 điểm</span>
+      </div>
+    </div>
+  );
+};
 function loadFontLevel() {
   try {
     const n = Number(localStorage.getItem(FONT_KEY));
@@ -204,6 +264,9 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
   // thí sinh bấm nhầm "NỘP BÀI THI" khi đề dài (30-50 câu) mà chưa làm hết.
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
+  // Câu thí sinh tự đánh dấu "xem lại" — chỉ để nhắc bản thân trên màn hình này, KHÔNG gửi server, không ảnh hưởng điểm.
+  const [flagged, setFlagged] = useState({}); // { [questionId]: true }
+
   // ── Cảnh báo "rời màn hình thi" (chuyển tab/app, alt-tab, khoá máy...) ────
   // Hiện overlay ngay lập tức + đếm ngược LEAVE_WARNING_SECONDS giây. Quay lại
   // trước khi hết giờ thì huỷ, không ảnh hưởng gì. Hết giờ thì tự nộp bài với
@@ -334,6 +397,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
     setExpiresAt(null);
     setSelectedAnswers({});
     setCurrentQuestionIndex(0);
+    setFlagged({});
     setSelectedRoleId(null);
     finishingRef.current = false;
 
@@ -699,140 +763,209 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
     setConfirmSubmitOpen(false);
   };
 
-  // Bấm nút "NỘP BÀI THI": nếu còn câu chưa trả lời thì chặn lại, hiện xác
-  // nhận trước; nộp thật chỉ diễn ra khi thí sinh xác nhận (hoặc đã làm hết).
+  // Bấm "Nộp bài": luôn hiện hộp xác nhận (kể cả khi đã làm hết) để tránh bấm nhầm;
+  // nộp thật chỉ diễn ra khi thí sinh bấm xác nhận trong hộp thoại.
   const handleRequestFinishExam = () => {
-    if (unansweredIndexes.length > 0) {
-      setConfirmSubmitOpen(true);
-      return;
-    }
-    handleFinishExam();
+    setShowQuestionGrid(false);
+    setConfirmSubmitOpen(true);
   };
 
+  const toggleFlag = (questionId) => setFlagged((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
+  const flaggedCount = questions.filter((q) => flagged[q.id]).length;
+  const lowTime = examSecondsLeft <= 300;
+
+  const exam = examData?.exam;
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto"
-      data-lenis-prevent
-    >
-      <div className="bg-white w-full max-w-2xl rounded-[10px] shadow-2xl overflow-hidden border border-slate-200 my-auto flex flex-col max-h-[92vh] supports-[height:100dvh]:max-h-[92dvh] relative">
-        {/* Overlay cảnh báo rời màn hình thi — chỉ hiện khi đang testing và
-            phát hiện tab/app bị chuyển. Che toàn bộ modal, không cho tương
-            tác gì khác cho tới khi quay lại hoặc hết giờ. */}
+    <div className="fixed inset-0 z-50 bg-[#0F172A]/60 sm:flex sm:items-center sm:justify-center sm:p-4" data-lenis-prevent>
+      <div className="relative bg-white w-full h-[100dvh] sm:h-[92dvh] sm:max-h-[900px] sm:max-w-3xl sm:rounded-xl sm:border sm:border-[#E2E8F0] sm:shadow-2xl overflow-hidden flex flex-col">
+        {/* Cảnh báo rời màn hình thi: che toàn bộ, chỉ còn 1 việc để làm là quay lại. */}
         {showLeaveWarning && step === 'testing' && (
-          <div className="absolute inset-0 z-[60] bg-[#0F172A]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-[#F6AD37] flex items-center justify-center shadow-z176">
-              <ShieldAlert className="w-9 h-9 text-white" />
+          <div
+            className="absolute inset-0 z-[60] bg-[#0F172A]/80 flex items-center justify-center p-5"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="leave-title"
+          >
+            <div className="w-full max-w-sm bg-white rounded-xl p-6 text-center space-y-4 shadow-z176">
+              <div className="w-16 h-16 rounded-full bg-[#FFF7E6] flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-9 h-9 text-[#B45309]" aria-hidden="true" />
+              </div>
+              <h3 id="leave-title" className="text-xl font-bold text-[#0F172A]">
+                Bạn vừa rời khỏi màn hình thi
+              </h3>
+              <p className="text-base text-[#334155] leading-relaxed">
+                Hãy quay lại ngay. Nếu không, bài thi sẽ tự động nộp với các đáp án bạn đang chọn.
+              </p>
+              <div className="rounded-xl bg-[#FEECEC] py-4">
+                <div className="text-5xl font-extrabold text-[#C53030] font-mono tabular-nums leading-none">
+                  {leaveSecondsLeft}
+                </div>
+                <div className="text-base font-semibold text-[#C53030] mt-1">giây nữa tự nộp bài</div>
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-white">Bạn đã rời khỏi màn hình thi!</h3>
-            <p className="text-sm text-slate-200 max-w-sm">
-              Vui lòng quay lại ngay. Nếu không, bài thi sẽ tự động được nộp với các đáp án đang chọn.
-            </p>
-            <div className="w-20 h-20 rounded-full border-4 border-[#F6AD37] flex items-center justify-center">
-              <span className="text-3xl font-extrabold text-white font-mono">{leaveSecondsLeft}</span>
-            </div>
-            <p className="text-xs text-slate-400">giây trước khi tự động nộp bài</p>
           </div>
         )}
 
-        {/* Modal Header */}
-        <div className="bg-[#0F172A] text-white p-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-[#008BC5] text-white flex items-center justify-center font-bold shrink-0">
-              <ShieldCheck className="w-5 h-5" />
+        {/* Thanh thương hiệu: chỉ hiện ngoài lúc làm bài để dành chỗ cho câu hỏi. */}
+        {step !== 'testing' && (
+          <header className="shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white border-b border-[#E2E8F0]">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-[10px] bg-[#008BC5] text-white flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-[#0F172A] leading-snug">
+                  Hệ thống thi trực tuyến Z176
+                </h2>
+                <p className="hidden sm:block text-sm text-[#334155] truncate">An toàn lao động &amp; Quy chế nội bộ</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-base text-white leading-tight">HỆ THỐNG THI TRỰC TUYẾN Z176</h3>
-              <p className="text-xs text-[#64748B]">An toàn lao động & Quy chế nội bộ</p>
-            </div>
-          </div>
-
-          {/* Nút đóng: ẩn khi đang làm bài (step === 'testing') để tránh
-              thí sinh bấm nhầm thoát ra giữa lúc đang thi và bị tính thời
-              gian/mất trạng thái làm bài. Các step khác (confirm, loading,
-              error, result...) vẫn cho đóng bình thường. */}
-          {step !== 'testing' && (
             <button
               onClick={onClose}
-              className="p-2 text-slate-300 hover:text-white rounded-lg min-touch-target flex items-center justify-center"
+              className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-[10px] font-semibold text-[#334155] hover:bg-[#F6F8FA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
               aria-label="Đóng giao diện thi"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" aria-hidden="true" />
+              <span>Đóng</span>
             </button>
-          )}
-        </div>
+          </header>
+        )}
 
         {/* BỊ CHẶN: bài thi đang mở ở tab khác của cùng trình duyệt */}
         {step === 'tab-blocked' && (
-          <div className="flex flex-col items-center justify-center gap-4 p-8 text-center flex-1">
-            <div className="w-16 h-16 rounded-full bg-[#F6AD37] flex items-center justify-center shadow-z176">
-              <ShieldAlert className="w-9 h-9 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-[#0F172A]">Bài thi đang mở ở tab khác</h3>
-            <p className="text-sm text-[#334155] max-w-sm">
-              Mỗi lúc chỉ được làm bài ở một tab. Hãy quay lại tab đang thi, hoặc đóng tab đó rồi quay lại đây — trang này
+          <StatusScreen
+            icon={ShieldAlert}
+            tone="warn"
+            title="Bài thi đang mở ở tab khác"
+            footer={
+              <button onClick={onClose} className={`${BTN_SECONDARY} min-w-[160px]`}>
+                Đóng
+              </button>
+            }
+          >
+            <p>
+              Mỗi lúc chỉ được làm bài ở một tab. Hãy quay lại tab đang thi, hoặc đóng tab đó rồi quay lại đây. Trang này
               sẽ tự mở khi tab kia đóng.
             </p>
-            <button
-              onClick={onClose}
-              className="mt-2 px-6 py-3 bg-[#334155] text-white font-bold text-base rounded-lg hover:bg-[#1e293b] transition-colors min-touch-target"
-            >
-              Đóng
-            </button>
-          </div>
+          </StatusScreen>
         )}
 
         {/* LOADING */}
         {step === 'loading' && (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500 flex-1">
-            <Loader2 className="w-8 h-8 animate-spin text-[#008BC5]" />
-            <span>Đang tải dữ liệu bài thi...</span>
+          <div
+            className="flex-1 flex flex-col items-center justify-center gap-3 bg-[#F6F8FA] text-[#334155]"
+            role="status"
+          >
+            <Loader2 className="w-10 h-10 animate-spin text-[#008BC5]" aria-hidden="true" />
+            <span className="text-base font-medium">Đang tải dữ liệu bài thi...</span>
           </div>
         )}
 
         {/* ERROR (không lấy được đề, chưa được gán đề, chưa có kỳ thi active...) */}
         {step === 'error' && (
-          <div className="p-6 flex flex-col items-center justify-center gap-3 text-center flex-1">
-            <AlertCircle className="w-10 h-10 text-red-500" />
-            <p className="text-[#0F172A] font-semibold">{loadError}</p>
-            <button
-              onClick={onClose}
-              className="mt-2 px-5 py-2.5 bg-[#334155] text-white font-semibold text-sm rounded-lg hover:bg-[#1e293b] transition-colors"
-            >
-              Đóng
-            </button>
-          </div>
+          <StatusScreen
+            icon={AlertCircle}
+            tone="danger"
+            title="Chưa thể vào phòng thi"
+            footer={
+              <button onClick={onClose} className={`${BTN_SECONDARY} min-w-[160px]`}>
+                Đóng
+              </button>
+            }
+          >
+            <p className="font-semibold text-[#0F172A]">{loadError}</p>
+          </StatusScreen>
         )}
 
-        {/* STEP: CONFIRMATION SCREEN
-            Nút hành động chính được đặt ngay sau khối thông tin nhân viên,
-            TRƯỚC danh sách nội quy — vì danh sách nội quy có thể dài, đẩy
-            nút xuống dưới màn hình trên các máy màn hình thấp (vd iPhone),
-            khiến người dùng phải cuộn hết nội quy mới thấy nút để bấm vào
-            thi. Đưa nút lên trước giúp thấy và bấm ngay không cần cuộn. */}
+        {/* ── MÀN HÌNH XÁC NHẬN TRƯỚC KHI THI ─────────────────────────────────
+            Nút bắt đầu nằm ở thanh đáy cố định nên luôn thấy được, không phải cuộn hết nội quy. */}
         {step === 'confirm' && (
-          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1" data-lenis-prevent>
-            <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-4 space-y-2">
-              <h4 className="font-bold text-base text-[#0F172A]">Xác nhận thông tin cán bộ / công nhân thi:</h4>
+          <>
+            <div className="flex-1 overflow-y-auto bg-[#F6F8FA]" data-lenis-prevent>
+              <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-5 space-y-4">
+                {/* Chưa đăng nhập */}
+                {!currentUser && (
+                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-z176 text-center space-y-3">
+                    <div className="w-14 h-14 rounded-full bg-[#EAF6FF] flex items-center justify-center mx-auto">
+                      <Lock className="w-7 h-7 text-[#006BA1]" aria-hidden="true" />
+                    </div>
+                    <h3 className="text-xl font-bold text-[#0F172A]">Vui lòng đăng nhập để vào thi</h3>
+                    <p className="text-base text-[#334155]">Bạn cần đăng nhập bằng tài khoản được cấp để làm bài.</p>
+                  </div>
+                )}
 
-              {currentUser ? (
-                employee ? (
+                {currentUser && exam && (
                   <>
-                  <div className="space-y-1.5 text-base text-[#334155] bg-white p-3 rounded-lg border border-slate-200">
+                    {/* Tên kỳ thi + 3 con số cần biết */}
                     <div>
-                      Họ và tên: <strong className="text-[#0F172A]">{employee.fullname}</strong>
+                      <p className="text-sm font-semibold text-[#006BA1]">Kỳ thi hiện hành</p>
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#0F172A] leading-snug mt-0.5">{exam.title}</h3>
                     </div>
-                    <div>
-                      Mã nhân viên: <strong className="text-[#008BC5] font-mono">{employee.employeeCode || '—'}</strong>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { icon: ListChecks, value: exam.totalQuestions, label: 'câu hỏi' },
+                        { icon: Clock, value: exam.durationMinutes, label: 'phút' },
+                        { icon: RefreshCw, value: examData.maxAttempts, label: 'lượt thi' },
+                      ].map(({ icon: Icon, value, label }) => (
+                        <div
+                          key={label}
+                          className="bg-white border border-[#E2E8F0] rounded-xl py-3 px-2 text-center shadow-z176"
+                        >
+                          <Icon className="w-6 h-6 mx-auto text-[#006BA1]" aria-hidden="true" />
+                          <div className="text-2xl font-extrabold text-[#0F172A] mt-1 leading-none">{value}</div>
+                          <div className="text-sm text-[#334155] mt-1">{label}</div>
+                        </div>
+                      ))}
                     </div>
-                    {!examData?.role && (
-                      <div>
-                        Xưởng / Phòng: <strong className="text-[#0F172A]">{employee.departmentName || '—'}</strong>
+
+                    {/* Đang có lượt dở: báo rõ đây là TIẾP TỤC, không mất lượt */}
+                    {examData.attempt && (
+                      <div className="flex items-start gap-3 bg-[#EAF6FF] border border-[#008BC5]/40 rounded-xl p-4">
+                        <Info className="w-6 h-6 shrink-0 text-[#006BA1] mt-0.5" aria-hidden="true" />
+                        <p className="text-base text-[#0F172A] leading-relaxed">
+                          <strong>Bạn đang có một lượt thi dở dang.</strong> Bấm nút bên dưới để làm tiếp đúng lượt đó.
+                          Không bị tính thêm lượt mới, các câu đã chọn vẫn được giữ, kể cả khi đổi thiết bị.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Thông tin thí sinh */}
+                {currentUser && (
+                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 sm:p-5 shadow-z176 space-y-3">
+                    <h4 className="text-lg font-bold text-[#0F172A]">Thông tin thí sinh</h4>
+                    {employee ? (
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base">
+                        <dt className="text-[#334155]">Họ và tên</dt>
+                        <dd className="font-bold text-[#0F172A]">{employee.fullname}</dd>
+                        <dt className="text-[#334155]">Mã nhân viên</dt>
+                        <dd className="font-bold text-[#006BA1] font-mono">{employee.employeeCode || '-'}</dd>
+                        {!examData?.role && (
+                          <>
+                            <dt className="text-[#334155]">Xưởng / Phòng</dt>
+                            <dd className="font-bold text-[#0F172A]">{employee.departmentName || '-'}</dd>
+                          </>
+                        )}
+                      </dl>
+                    ) : (
+                      <div className="flex items-start gap-3 bg-[#FFF7E6] border border-[#F6AD37]/50 rounded-lg p-3 text-base text-[#0F172A]">
+                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#B45309]" aria-hidden="true" />
+                        <span>
+                          Tài khoản của bạn chưa được liên kết với hồ sơ nhân viên. Vui lòng liên hệ quản trị viên.
+                        </span>
                       </div>
                     )}
                   </div>
+                )}
 
-                  {/* MỚI — Khối NỔI BẬT: thí sinh đang thi với tư cách phòng ban nào */}
-                  {examData?.role && (() => {
+                {/* Thi với tư cách phòng ban nào (logic giữ nguyên, chỉ đổi giao diện) */}
+                {currentUser &&
+                  employee &&
+                  examData?.role &&
+                  (() => {
                     const role = examData.role;
                     // canPick: chưa khóa vai trò và có >= 2 phòng -> hiện danh sách chọn. Phòng chưa đủ câu hỏi riêng
                     // (eligible = false, khi kỳ thi TẮT bù câu chung) bị làm mờ và không chọn được.
@@ -849,9 +982,13 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                       (activeOption.requiredDeptQuestions ?? 0) > 0 &&
                       (activeOption.deptQuestionCount ?? 0) < activeOption.requiredDeptQuestions;
                     return (
-                      <div className="rounded-xl border-2 border-[#008BC5] bg-[#EAF6FF] p-3 sm:p-4 space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#008BC5]">
-                          {canPick ? <Building2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      <div className="rounded-xl border-2 border-[#008BC5] bg-[#EAF6FF] p-4 space-y-3">
+                        <div className="flex items-center gap-2 text-base font-bold text-[#006BA1]">
+                          {canPick ? (
+                            <Building2 className="w-5 h-5" aria-hidden="true" />
+                          ) : (
+                            <Lock className="w-5 h-5" aria-hidden="true" />
+                          )}
                           <span>Bạn sẽ thi với tư cách phòng ban</span>
                         </div>
 
@@ -872,31 +1009,31 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                                   onClick={() => {
                                     if (!disabled) setSelectedRoleId(id);
                                   }}
-                                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition-colors min-touch-target ${
+                                  className={`w-full text-left flex items-center gap-3 px-3 py-3 rounded-xl border-2 transition-colors min-h-[56px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
                                     disabled
-                                      ? 'bg-slate-200/70 border-transparent opacity-60 cursor-not-allowed'
+                                      ? 'bg-[#F6F8FA] border-transparent opacity-60 cursor-not-allowed'
                                       : active
-                                        ? 'bg-white border-[#008BC5] shadow-sm'
-                                        : 'bg-white/60 border-transparent hover:border-[#008BC5]/40'
+                                        ? 'bg-white border-[#008BC5]'
+                                        : 'bg-white border-[#E2E8F0] hover:border-[#0693E3]'
                                   }`}
                                 >
                                   {disabled ? (
-                                    <Lock className="w-5 h-5 text-slate-400 shrink-0" />
+                                    <Lock className="w-6 h-6 text-[#64748B] shrink-0" aria-hidden="true" />
                                   ) : active ? (
-                                    <CheckCircle2 className="w-5 h-5 text-[#008BC5] shrink-0" />
+                                    <CheckCircle2 className="w-6 h-6 text-[#008BC5] shrink-0" aria-hidden="true" />
                                   ) : (
-                                    <Circle className="w-5 h-5 text-slate-300 shrink-0" />
+                                    <Circle className="w-6 h-6 text-[#94A3B8] shrink-0" aria-hidden="true" />
                                   )}
                                   <span className="flex-1 min-w-0">
                                     <span
                                       className={`block font-bold text-base ${
-                                        disabled ? 'text-slate-500' : 'text-[#0F172A]'
+                                        disabled ? 'text-[#64748B]' : 'text-[#0F172A]'
                                       }`}
                                     >
                                       {o.name}
                                     </span>
                                     {disabled && (
-                                      <span className="block text-xs text-slate-500">
+                                      <span className="block text-sm text-[#334155]">
                                         {o.reason === 'out_of_scope'
                                           ? 'Phòng ban không thuộc phạm vi kỳ thi này'
                                           : o.reason === 'insufficient_questions'
@@ -906,12 +1043,12 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                                     )}
                                   </span>
                                   <span
-                                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                                    className={`text-sm font-semibold px-2.5 py-1 rounded-lg ${
                                       disabled
-                                        ? 'bg-slate-300 text-slate-600'
+                                        ? 'bg-[#E2E8F0] text-[#334155]'
                                         : o.isMain
                                           ? 'bg-[#0F172A] text-white'
-                                          : 'bg-[#008BC5]/15 text-[#008BC5]'
+                                          : 'bg-[#EAF6FF] text-[#006BA1] border border-[#008BC5]/40'
                                     }`}
                                   >
                                     {o.isMain ? 'Phòng chính' : 'Kiêm nhiệm'}
@@ -923,12 +1060,14 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                         ) : (
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xl sm:text-2xl font-extrabold text-[#0F172A] leading-tight">
-                              {activeOption?.name ?? role.name ?? '—'}
+                              {activeOption?.name ?? role.name ?? '-'}
                             </span>
                             {activeOption && (
                               <span
-                                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                  activeOption.isMain ? 'bg-[#0F172A] text-white' : 'bg-[#008BC5]/15 text-[#008BC5]'
+                                className={`text-sm font-semibold px-2.5 py-1 rounded-lg ${
+                                  activeOption.isMain
+                                    ? 'bg-[#0F172A] text-white'
+                                    : 'bg-white text-[#006BA1] border border-[#008BC5]/40'
                                 }`}
                               >
                                 {activeOption.isMain ? 'Phòng chính' : 'Kiêm nhiệm'}
@@ -938,288 +1077,272 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                         )}
 
                         {noEligibleRole ? (
-                          <p className="text-sm text-[#C53030] bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg px-3 py-2 flex items-start gap-1.5">
-                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <p className="text-base text-[#C53030] bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg px-3 py-2.5 flex items-start gap-2">
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
                             <span>
                               Kỳ thi này <strong>không dành cho phòng ban nào của bạn</strong>. Vui lòng liên hệ Người
                               duyệt đề hoặc quản trị viên nếu bạn cho rằng đây là nhầm lẫn.
                             </span>
                           </p>
                         ) : canPick && eligibleCount > 1 ? (
-                          <p className="text-sm text-[#334155] flex items-start gap-1.5">
-                            <AlertCircle className="w-4 h-4 text-[#F6AD37] shrink-0 mt-0.5" />
+                          <p className="text-base text-[#0F172A] flex items-start gap-2 leading-relaxed">
+                            <AlertCircle className="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" aria-hidden="true" />
                             <span>
                               Bạn có phòng kiêm nhiệm nên cần chọn <strong>1 phòng ban</strong> để thi. Sau khi bấm
-                              “Xác nhận &amp; bắt đầu”, lựa chọn sẽ <strong>bị khóa</strong> cho kỳ thi này — muốn đổi
+                              “Xác nhận &amp; bắt đầu thi”, lựa chọn sẽ <strong>bị khóa</strong> cho kỳ thi này. Muốn đổi
                               phải nhờ Người duyệt đề.
                             </span>
                           </p>
                         ) : canPick ? (
-                          <p className="text-sm text-[#334155] flex items-start gap-1.5">
-                            <AlertCircle className="w-4 h-4 text-[#F6AD37] shrink-0 mt-0.5" />
+                          <p className="text-base text-[#0F172A] flex items-start gap-2 leading-relaxed">
+                            <AlertCircle className="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" aria-hidden="true" />
                             <span>
                               Kỳ thi này chỉ dành cho <strong>1 phòng ban</strong> của bạn nên bạn sẽ thi với phòng này.
                               Các phòng bị mờ không nằm trong phạm vi kỳ thi.
                             </span>
                           </p>
                         ) : (
-                          <p className="text-sm text-[#334155]">
+                          <p className="text-base text-[#334155] leading-relaxed">
                             Đề thi và điểm của bạn trong kỳ này được tính theo phòng ban trên
                             {role.options.length > 1 ? ' (vai trò đã được khóa).' : '.'}
                           </p>
                         )}
 
                         {!noEligibleRole && compensated && (
-                          <p className="text-sm text-[#334155] bg-white/70 border border-[#008BC5]/20 rounded-lg px-3 py-2">
-                            Phòng ban này chỉ có {activeOption.deptQuestionCount ?? 0}/{activeOption.requiredDeptQuestions} câu
-                            hỏi riêng trong kỳ thi, nên đề của bạn có <strong>câu hỏi chung bù vào</strong> phần còn thiếu.
-                            Bạn vẫn được thi bình thường.
+                          <p className="text-base text-[#0F172A] bg-white border border-[#008BC5]/30 rounded-lg px-3 py-2.5 leading-relaxed">
+                            Phòng ban này chỉ có {activeOption.deptQuestionCount ?? 0}/{activeOption.requiredDeptQuestions}{' '}
+                            câu hỏi riêng trong kỳ thi, nên đề của bạn có <strong>câu hỏi chung bù vào</strong> phần còn
+                            thiếu. Bạn vẫn được thi bình thường.
                           </p>
                         )}
                       </div>
                     );
                   })()}
-                  </>
-                ) : (
-                  <div className="p-3 bg-[#FFFBEB] border border-[#F6AD37]/40 rounded-lg text-[#0F172A] text-sm">
-                    Tài khoản của bạn chưa được liên kết với hồ sơ nhân viên. Vui lòng liên hệ quản trị viên.
+
+                {/* Lưu ý khi làm bài */}
+                {currentUser && exam && (
+                  <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 sm:p-5 shadow-z176 space-y-3">
+                    <h4 className="text-lg font-bold text-[#0F172A]">Lưu ý khi làm bài</h4>
+                    <ul className="space-y-3">
+                      {[
+                        {
+                          icon: Clock,
+                          text: `Làm trong tối đa ${exam.durationMinutes} phút. Hết giờ, hệ thống tự động nộp bài.`,
+                        },
+                        {
+                          icon: ListChecks,
+                          text: 'Mỗi câu chọn 1 hoặc nhiều đáp án, có ghi rõ trên từng câu. Đáp án được tự động lưu mỗi lần bạn chọn.',
+                        },
+                        {
+                          icon: ShieldAlert,
+                          text: `Không chuyển tab hay mở ứng dụng khác. Nếu rời màn hình thi, hệ thống sẽ cảnh báo và tự nộp bài sau ${LEAVE_WARNING_SECONDS} giây nếu bạn chưa quay lại.`,
+                        },
+                        {
+                          icon: RefreshCw,
+                          text: `Mỗi thí sinh có ${examData.maxAttempts} lượt thi chính thức. Muốn thi lại cần Người duyệt đề cấp phép.`,
+                        },
+                        {
+                          icon: Info,
+                          text: 'Nếu mất mạng hoặc tải lại trang, hãy vào lại để làm tiếp. Các câu đã chọn vẫn được giữ.',
+                        },
+                      ].map(({ icon: Icon, text }) => (
+                        <li key={text} className="flex items-start gap-3 text-base text-[#0F172A] leading-relaxed">
+                          <Icon className="w-5 h-5 shrink-0 mt-1 text-[#006BA1]" aria-hidden="true" />
+                          <span>{text}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                )
-              ) : (
-                <div className="p-3 bg-[#FFFBEB] border border-[#F6AD37]/40 rounded-lg text-[#0F172A] text-sm font-medium flex items-center justify-between gap-2">
-                  <span>Bạn chưa đăng nhập thông tin nhân viên.</span>
-                  <button
-                    onClick={onOpenLogin}
-                    className="px-3 py-1.5 bg-[#008BC5] text-white font-bold text-sm rounded-md hover:bg-[#007ba1]"
-                  >
-                    Đăng nhập ngay
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {submitError && (
-              <div className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg text-[#0F172A] text-sm flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{submitError}</span>
-              </div>
-            )}
-
-            {!currentUser ? (
-              <button
-                onClick={onOpenLogin}
-                className="w-full min-h-[52px] bg-[#008BC5] text-white font-bold text-lg rounded-full hover:bg-[#007ba1] transition-colors flex items-center justify-center gap-2 shadow-z176 min-touch-target"
-              >
-                <span>ĐĂNG NHẬP ĐỂ VÀO THI</span>
-              </button>
-            ) : !examData?.canTake ? (
-              <div className="text-center text-sm text-slate-500 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                Bạn đã sử dụng hết lượt thi chính thức. Nếu cần thi lại, vui lòng liên hệ Người duyệt đề.
-              </div>
-            ) : (
-              <button
-                onClick={handleStartExam}
-                disabled={starting || !employee || (examData?.role && (!examData.role.departmentId || examData.role.hasEligibleRole === false))}
-                className="w-full min-h-[52px] bg-[#008BC5] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-lg rounded-full hover:bg-[#007ba1] transition-colors flex items-center justify-center gap-2 shadow-z176 min-touch-target"
-              >
-                <CheckCircle2 className="w-6 h-6" />
-                <span>{starting ? 'ĐANG VÀO BÀI THI...' : examData?.attempt ? 'TIẾP TỤC BÀI THI ĐANG DỞ' : 'XÁC NHẬN & BẮT ĐẦU BÀI THI'}</span>
-              </button>
-            )}
-
-            {currentUser && examData && (
-              <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-[10px] p-4 text-sm text-[#334155]">
-                <h5 className="font-bold text-base text-[#0F172A]">{examData.exam.title}</h5>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>
-                    Bài thi gồm {examData.exam.totalQuestions} câu hỏi, làm trong tối đa{' '}
-                    {examData.exam.durationMinutes} phút.
-                  </li>
-                  <li>Mỗi câu hỏi chọn 1 hoặc nhiều đáp án đúng tuỳ theo yêu cầu của từng câu.</li>
-                  <li>Không thoát trình duyệt, không chuyển sang tab/ứng dụng khác trong khi đang làm bài.</li>
-                  <li>
-                    Nếu rời khỏi màn hình thi (chuyển tab, mở app khác, alt-tab...), hệ thống sẽ hiện cảnh báo và tự
-                    động nộp bài sau {LEAVE_WARNING_SECONDS} giây nếu không quay lại kịp.
-                  </li>
-                  <li>Mỗi thí sinh có {examData.maxAttempts} lượt thi chính thức. Muốn thi lại cần được Người duyệt đề cấp phép riêng.</li>
-                  {examData.attempt && (
-                    <li className="text-[#008BC5] font-semibold">
-                      Bạn đang có 1 lượt thi dở dang — bấm bên trên để tiếp tục đúng lượt đó (không tính thêm lượt mới,
-                      các câu đã chọn trước đó sẽ được khôi phục kể cả khi đổi thiết bị).
-                    </li>
-                  )}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STEP: TESTING SCREEN */}
-        {step === 'testing' && currentQ && (
-          <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Top Bar with Timer & Progress */}
-            <div className="bg-slate-100 px-4 py-2.5 border-b border-slate-200 shrink-0 space-y-2">
-              <div className="flex items-center justify-between text-sm gap-2">
-                {showQuestionGrid ? (
-                  <button
-                    onClick={() => setShowQuestionGrid(false)}
-                    className="flex items-center gap-1.5 font-bold text-[#0F172A] px-2 py-1 -mx-2 -my-1 rounded-lg hover:bg-slate-200 transition-colors min-touch-target"
+            {/* Thanh hành động cố định ở đáy */}
+            <div className="shrink-0 bg-white border-t border-[#E2E8F0] px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="mx-auto max-w-2xl space-y-3">
+                {submitError && (
+                  <div
+                    className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg text-base text-[#0F172A] flex items-start gap-2"
+                    role="alert"
                   >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Quay lại câu {currentQuestionIndex + 1}</span>
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#C53030]" aria-hidden="true" />
+                    <span>{submitError}</span>
+                  </div>
+                )}
+
+                {!currentUser ? (
+                  <button onClick={onOpenLogin} className={`${BTN_PRIMARY} w-full text-lg`}>
+                    Đăng nhập để vào thi
                   </button>
+                ) : !examData?.canTake ? (
+                  <div className="text-center text-base text-[#334155] p-3 bg-[#F6F8FA] border border-[#E2E8F0] rounded-lg">
+                    Bạn đã sử dụng hết lượt thi chính thức. Nếu cần thi lại, vui lòng liên hệ Người duyệt đề.
+                  </div>
                 ) : (
                   <button
-                    onClick={() => setShowQuestionGrid(true)}
-                    className="flex items-center gap-2 font-bold text-[#0F172A] px-2 py-1 -mx-2 -my-1 rounded-lg hover:bg-slate-200 transition-colors min-touch-target"
-                    aria-label="Mở danh sách câu hỏi"
+                    onClick={handleStartExam}
+                    disabled={
+                      starting ||
+                      !employee ||
+                      (examData?.role && (!examData.role.departmentId || examData.role.hasEligibleRole === false))
+                    }
+                    className={`${BTN_PRIMARY} w-full text-lg`}
                   >
-                    <List className="w-4 h-4 text-[#008BC5] shrink-0" />
+                    {starting ? (
+                      <Loader2 className="w-6 h-6 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <CheckCircle2 className="w-6 h-6" aria-hidden="true" />
+                    )}
                     <span>
-                      Câu {currentQuestionIndex + 1}/{questions.length}
-                    </span>
-                    <span className="text-slate-400 hidden min-[380px]:inline">•</span>
-                    <span className="text-[#008BC5] hidden min-[380px]:inline">
-                      Đã chọn: {answeredCount}/{questions.length}
+                      {starting
+                        ? 'Đang vào bài thi...'
+                        : examData?.attempt
+                          ? 'Tiếp tục bài thi đang dở'
+                          : 'Xác nhận & bắt đầu thi'}
                     </span>
                   </button>
                 )}
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Cỡ chữ câu hỏi — đặt cạnh đồng hồ; ẩn khi đang xem lưới danh sách câu */}
-                  {!showQuestionGrid && (
-                    <div className="flex items-center gap-1 text-[#334155]" role="group" aria-label="Cỡ chữ câu hỏi">
-                      <button
-                        type="button"
-                        onClick={() => changeFontLevel(-1)}
-                        disabled={fontLevel === 0}
-                        aria-label="Giảm cỡ chữ"
-                        className="h-10 min-w-[40px] px-2 rounded-lg border border-slate-300 bg-white font-bold text-sm text-[#0F172A] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        A−
-                      </button>
-                      <span className="sr-only sm:not-sr-only sm:min-w-[52px] text-center text-xs font-medium" aria-live="polite">{fontSizes.label}</span>
-                      <button
-                        type="button"
-                        onClick={() => changeFontLevel(1)}
-                        disabled={fontLevel === FONT_LEVELS.length - 1}
-                        aria-label="Tăng cỡ chữ"
-                        className="h-10 min-w-[40px] px-2 rounded-lg border border-slate-300 bg-white font-bold text-lg text-[#0F172A] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        A+
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-[#0F172A] text-white font-bold font-mono text-base rounded-md">
-                    <Clock className="w-4 h-4 text-[#008BC5]" />
-                    <span>{formatTimer(examSecondsLeft)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {(examData?.exam?.code || examData?.role?.name) && (
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  {examData?.role?.name ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0F172A] text-white font-semibold text-xs">
-                      <Building2 className="w-3 h-3" />
-                      Thi với tư cách: {examData.role.name}
-                    </span>
-                  ) : (
-                    <span />
-                  )}
-                  {examData?.exam?.code && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#008BC5]/10 text-[#008BC5] font-bold font-mono text-xs border border-[#008BC5]/30">
-                      Mã đề: {examData.exam.code}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Progress bar - thuần hiển thị, tính từ answeredCount/questions.length đã có sẵn */}
-              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#008BC5] rounded-full transition-all"
-                  style={{ width: `${progressPercent}%` }}
-                />
               </div>
             </div>
+          </>
+        )}
 
-            {showQuestionGrid ? (
-              /* Màn hình danh sách câu hỏi — chiếm toàn bộ vùng nội dung, thoải mái
-                 cuộn/chọn khi đề có 30-50 câu, thay vì khung nhỏ chèn phía trên. */
-              <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4" data-lenis-prevent>
-                <div>
-                  <h4 className="font-bold text-base text-[#0F172A]">Danh sách câu hỏi</h4>
-                  <p className="text-sm text-[#334155] mt-0.5">
-                    Đã trả lời <strong className="text-[#008BC5]">{answeredCount}/{questions.length}</strong> câu.
-                    {unansweredIndexes.length > 0 && (
-                      <> Còn <strong className="text-[#E53E3E]">{unansweredIndexes.length}</strong> câu chưa trả lời.</>
-                    )}
-                  </p>
-                </div>
+        {/* ── MÀN HÌNH LÀM BÀI ───────────────────────────────────────────── */}
+        {step === 'testing' && currentQ && (
+          <div className="relative flex flex-col flex-1 min-h-0 bg-[#F6F8FA]">
+            {/* Header cố định: câu hiện tại + đồng hồ + tiến độ */}
+            <div className="shrink-0 bg-white border-b border-[#E2E8F0] px-4 sm:px-6 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => setShowQuestionGrid(true)}
+                  className="inline-flex items-center gap-2 min-h-[48px] px-3 -ml-3 rounded-[10px] text-lg font-bold text-[#0F172A] hover:bg-[#F6F8FA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                  aria-label={`Câu ${currentQuestionIndex + 1} trên ${questions.length}. Mở danh sách câu hỏi`}
+                >
+                  <List className="w-5 h-5 text-[#006BA1]" aria-hidden="true" />
+                  <span>
+                    Câu {currentQuestionIndex + 1}/{questions.length}
+                  </span>
+                </button>
 
-                {/* Chú thích màu */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[#334155] bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded bg-[#008BC5] shrink-0" /> Đang xem
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded bg-[#22C55E] shrink-0" /> Đã chọn
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded bg-white border border-slate-300 shrink-0" /> Chưa chọn
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-6 min-[420px]:grid-cols-8 sm:grid-cols-10 gap-2">
-                  {questions.map((q, idx) => {
-                    const isAnswered = (selectedAnswers[q.id] || []).length > 0;
-                    const isCurrent = idx === currentQuestionIndex;
-                    return (
-                      <button
-                        key={q.id}
-                        onClick={() => handleJumpToQuestion(idx)}
-                        className={`aspect-square min-h-[44px] rounded-lg text-sm font-bold flex items-center justify-center border transition-colors ${
-                          isCurrent
-                            ? 'bg-[#008BC5] border-[#008BC5] text-white ring-2 ring-[#008BC5]/40'
-                            : isAnswered
-                            ? 'bg-[#22C55E] border-[#22C55E] text-white'
-                            : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
-                        }`}
-                        aria-label={`Đi tới câu ${idx + 1}${isAnswered ? ', đã trả lời' : ', chưa trả lời'}`}
-                        aria-current={isCurrent}
-                      >
-                        {idx + 1}
-                      </button>
-                    );
-                  })}
+                <div
+                  role="timer"
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] font-mono font-bold text-xl tabular-nums border ${
+                    lowTime
+                      ? 'bg-[#FEECEC] text-[#C53030] border-[#E53E3E]/40'
+                      : 'bg-[#F6F8FA] text-[#0F172A] border-[#E2E8F0]'
+                  }`}
+                >
+                  <Clock className={`w-5 h-5 ${lowTime ? 'text-[#C53030]' : 'text-[#006BA1]'}`} aria-hidden="true" />
+                  <span className="sr-only">Thời gian còn lại: </span>
+                  <span>{formatTimer(examSecondsLeft)}</span>
                 </div>
               </div>
-            ) : (
-              <>
-                {/* Question Content — chặn copy + không cho bôi đen chọn văn
-                    bản (mức răn đe, không chặn được screenshot/chụp lại). */}
-                <div
-                  className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 select-none"
-                  data-lenis-prevent
-                  onCopy={handleBlockCopy}
-                  style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-                >
 
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex-1 h-2 bg-[#E2E8F0] rounded-full overflow-hidden"
+                  role="progressbar"
+                  aria-label="Tiến độ trả lời"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progressPercent}
+                >
                   <div
-                    className="text-base sm:text-lg font-bold text-[#0F172A] leading-snug"
-                    style={fontSizes.q ? { fontSize: fontSizes.q } : undefined}
-                  >
-                    {currentQuestionIndex + 1}. {currentQ.content}
-                    {currentQ.answerType === 'multiple' && (
-                      <span className="block text-xs font-semibold text-[#008BC5] mt-1">(Chọn nhiều đáp án đúng)</span>
+                    className="h-full bg-[#008BC5] rounded-full transition-[width] duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <span className="text-sm font-semibold text-[#334155] whitespace-nowrap">
+                  Đã làm {answeredCount}/{questions.length}
+                </span>
+              </div>
+
+              {lowTime && (
+                <p className="text-base font-semibold text-[#C53030] flex items-center gap-2" role="status">
+                  <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
+                  <span>Còn dưới 5 phút. Hãy kiểm tra các câu chưa làm.</span>
+                </p>
+              )}
+            </div>
+
+            {/* Nội dung câu hỏi — chặn copy + không cho bôi đen (mức răn đe, không chặn được chụp màn hình). */}
+            <div
+              className="flex-1 min-h-0 overflow-y-auto select-none"
+              data-lenis-prevent
+              onCopy={handleBlockCopy}
+              style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
+            >
+              <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-4 space-y-4">
+                {/* Thông tin kỳ thi + chỉnh cỡ chữ */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-sm text-[#334155] space-y-0.5 min-w-0">
+                    {examData?.exam?.code && (
+                      <div>
+                        Mã đề: <strong className="font-mono text-[#0F172A]">{examData.exam.code}</strong>
+                      </div>
+                    )}
+                    {examData?.role?.name && (
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-4 h-4 shrink-0 text-[#006BA1]" aria-hidden="true" />
+                        <span className="truncate">
+                          Thi với tư cách: <strong className="text-[#0F172A]">{examData.role.name}</strong>
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  {/* Ảnh minh hoạ đề bài (nếu câu hỏi có gắn ảnh) — key theo
-                      currentQ.id để reset trạng thái lỗi tải mỗi khi chuyển câu. */}
+                  <div className="flex items-center gap-2" role="group" aria-label="Cỡ chữ câu hỏi">
+                    <span className="text-sm font-semibold text-[#334155]">Cỡ chữ</span>
+                    <button
+                      type="button"
+                      onClick={() => changeFontLevel(-1)}
+                      disabled={fontLevel === 0}
+                      aria-label="Giảm cỡ chữ"
+                      className="h-11 min-w-[44px] px-2 rounded-[10px] border-[1.5px] border-[#CBD5E1] bg-white font-bold text-base text-[#0F172A] hover:bg-[#F0F9FF] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                    >
+                      A−
+                    </button>
+                    <span className="min-w-[56px] text-center text-sm font-semibold text-[#0F172A]" aria-live="polite">
+                      {fontSizes.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => changeFontLevel(1)}
+                      disabled={fontLevel === FONT_LEVELS.length - 1}
+                      aria-label="Tăng cỡ chữ"
+                      className="h-11 min-w-[44px] px-2 rounded-[10px] border-[1.5px] border-[#CBD5E1] bg-white font-bold text-xl text-[#0F172A] hover:bg-[#F0F9FF] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                    >
+                      A+
+                    </button>
+                  </div>
+                </div>
+
+                {/* Thẻ câu hỏi */}
+                <section className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-z176 space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center h-8 px-3 rounded-lg bg-[#008BC5] text-white font-bold text-base">
+                      Câu {currentQuestionIndex + 1}
+                    </span>
+                    {currentQ.answerType === 'multiple' ? (
+                      <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#FFF7E6] text-[#B45309] font-semibold text-sm border border-[#F6AD37]/50">
+                        <ListChecks className="w-4 h-4" aria-hidden="true" />
+                        Chọn TẤT CẢ đáp án đúng
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#F6F8FA] text-[#334155] font-semibold text-sm border border-[#E2E8F0]">
+                        <Circle className="w-4 h-4" aria-hidden="true" />
+                        Chọn 1 đáp án
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="font-semibold text-[#0F172A] leading-relaxed" style={{ fontSize: fontSizes.q }}>
+                    {currentQ.content}
+                  </p>
+
+                  {/* Ảnh minh hoạ (nếu có) — lỗi tải ảnh không chặn làm bài */}
                   {currentQ.imageUrl && !imageLoadFailed && (
-                    <div className="rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex justify-center">
+                    <div className="rounded-lg overflow-hidden border border-[#E2E8F0] bg-[#F6F8FA] flex justify-center">
                       <img
                         key={currentQ.id}
                         src={currentQ.imageUrl}
@@ -1227,235 +1350,439 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                         loading="lazy"
                         onError={() => setImageLoadFailed(true)}
                         onDragStart={(e) => e.preventDefault()}
-                        className="max-h-72 w-auto object-contain"
+                        className="max-h-[38dvh] sm:max-h-80 w-auto object-contain"
                       />
                     </div>
                   )}
                   {currentQ.imageUrl && imageLoadFailed && (
-                    <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Không tải được hình minh hoạ cho câu này — vẫn có thể tiếp tục làm bài bình thường.</span>
+                    <div className="flex items-start gap-2 text-sm text-[#334155] bg-[#F6F8FA] border border-[#E2E8F0] rounded-lg px-3 py-2.5">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                      <span>Không tải được hình minh hoạ cho câu này. Bạn vẫn có thể làm bài bình thường.</span>
                     </div>
                   )}
+                </section>
 
-                  {/* Options list */}
-                  <div className="space-y-2.5">
-                    {currentQ.options.map((opt) => {
-                      const isSelected = (selectedAnswers[currentQ.id] || []).includes(opt.id);
-                      const Icon =
-                        currentQ.answerType === 'multiple'
-                          ? isSelected
-                            ? CheckSquare
-                            : Square
-                          : isSelected
-                          ? CheckCircle2
-                          : Circle;
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => handleSelectOption(currentQ, opt.id)}
-                          className={`w-full min-h-[52px] p-3 rounded-lg text-left text-base font-medium transition-all flex items-start gap-3 border min-touch-target ${
-                            isSelected
-                              ? 'bg-[#EAF6FF] border-[#008BC5] text-[#0F172A] font-semibold ring-2 ring-[#008BC5]/30'
-                              : 'bg-slate-50 border-slate-200 text-[#334155] hover:bg-slate-100'
-                          }`}
-                        >
-                          <Icon
-                            className={`w-5 h-5 shrink-0 mt-0.5 ${isSelected ? 'text-[#008BC5]' : 'text-slate-400'}`}
-                          />
-                          <span className="leading-snug" style={fontSizes.a ? { fontSize: fontSizes.a } : undefined}>{opt.content}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Footer cố định: nút Trước/Sau/Nộp bài luôn hiện, không bị đẩy ra ngoài màn hình khi nội dung dài hoặc chữ lớn. */}
+                {/* Đáp án: 1 cột, cả hàng bấm được, có chữ cái A/B/C/D */}
                 <div
-                  className="shrink-0 border-t border-slate-200 bg-white px-4 sm:px-6 pt-3 space-y-3 max-h-[50%] overflow-y-auto"
-                  style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+                  className="space-y-3"
+                  role={currentQ.answerType === 'multiple' ? 'group' : 'radiogroup'}
+                  aria-label="Các đáp án"
                 >
-                  {submitError && (
-                    <div className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg text-[#0F172A] text-sm flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{submitError}</span>
-                    </div>
-                  )}
-                  {/* Xác nhận trước khi nộp nếu còn câu chưa trả lời */}
-                  {confirmSubmitOpen && (
-                    <div className="p-3 bg-[#FFFBEB] border border-[#F6AD37]/50 rounded-lg space-y-2.5">
-                      <div className="flex items-start gap-2 text-[#0F172A] text-sm font-medium">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#F6AD37]" />
-                        <span>
-                          Bạn còn <strong>{unansweredIndexes.length}</strong> câu chưa trả lời. Bạn vẫn muốn nộp bài?
+                  {currentQ.options.map((opt, idx) => {
+                    const isSelected = (selectedAnswers[currentQ.id] || []).includes(opt.id);
+                    const isMultiple = currentQ.answerType === 'multiple';
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role={isMultiple ? 'checkbox' : 'radio'}
+                        aria-checked={isSelected}
+                        onClick={() => handleSelectOption(currentQ, opt.id)}
+                        className={`w-full min-h-[56px] px-4 py-3.5 rounded-xl text-left flex items-start gap-3 border-2 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
+                          isSelected
+                            ? 'border-[#008BC5] bg-[#EAF6FF]'
+                            : 'border-[#E2E8F0] bg-white hover:border-[#0693E3] hover:bg-[#F0F9FF] active:bg-[#F0F9FF]'
+                        }`}
+                      >
+                        <span
+                          className={`mt-0.5 shrink-0 w-7 h-7 flex items-center justify-center border-2 ${
+                            isMultiple ? 'rounded-md' : 'rounded-full'
+                          } ${
+                            isSelected
+                              ? 'bg-[#008BC5] border-[#008BC5] text-white'
+                              : 'bg-white border-[#94A3B8] text-transparent'
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <Check className="w-4 h-4" strokeWidth={3} />
                         </span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                          onClick={() => setConfirmSubmitOpen(false)}
-                          className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-[#0F172A] font-bold text-sm rounded-lg hover:bg-slate-50 transition-colors min-touch-target"
-                        >
-                          Tiếp tục làm bài
-                        </button>
-                        <button
-                          onClick={handleFinishExam}
-                          className="flex-1 px-4 py-2.5 bg-[#22C55E] text-white font-bold text-sm rounded-lg hover:bg-green-600 transition-colors min-touch-target"
-                        >
-                          Nộp bài luôn
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
-                      disabled={currentQuestionIndex === 0}
-                      className="px-4 py-2.5 bg-slate-200 disabled:opacity-40 text-[#0F172A] font-bold text-sm rounded-lg hover:bg-slate-300 transition-colors flex items-center gap-1 min-touch-target"
-                    >
-                      <ArrowLeft className="w-4 h-4" /> Câu trước
-                    </button>
+                        <span className="flex-1 leading-relaxed text-[#0F172A]" style={{ fontSize: fontSizes.a }}>
+                          <span className="font-bold text-[#006BA1] mr-2">{String.fromCharCode(65 + idx)}.</span>
+                          <span className={isSelected ? 'font-semibold' : ''}>{opt.content}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                    {currentQuestionIndex < questions.length - 1 ? (
-                      <button
-                        onClick={() => setCurrentQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                        className="px-4 py-2.5 bg-[#008BC5] text-white font-bold text-sm rounded-lg hover:bg-[#007ba1] transition-colors flex items-center gap-1 min-touch-target"
-                      >
-                        Câu sau <ArrowRight className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleRequestFinishExam}
-                        className="px-5 py-2.5 bg-[#22C55E] text-white font-bold text-base rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 min-touch-target"
-                      >
-                        <CheckCircle2 className="w-5 h-5" /> NỘP BÀI THI
-                      </button>
-                    )}
+                {/* Đánh dấu xem lại (chỉ nhắc trên màn hình, không gửi server) */}
+                <button
+                  type="button"
+                  onClick={() => toggleFlag(currentQ.id)}
+                  aria-pressed={Boolean(flagged[currentQ.id])}
+                  className={`min-h-[48px] px-4 rounded-[10px] inline-flex items-center gap-2 text-base font-semibold border-[1.5px] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
+                    flagged[currentQ.id]
+                      ? 'bg-[#FFF7E6] border-[#F6AD37] text-[#B45309]'
+                      : 'bg-white border-[#CBD5E1] text-[#334155] hover:bg-[#F6F8FA]'
+                  }`}
+                >
+                  <Flag className="w-5 h-5" fill={flagged[currentQ.id] ? 'currentColor' : 'none'} aria-hidden="true" />
+                  <span>{flagged[currentQ.id] ? 'Đã đánh dấu xem lại (bấm để bỏ)' : 'Đánh dấu để xem lại sau'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Thanh đáy: đúng 2 nút, to, cách đều. Nộp bài nằm trong danh sách câu hỏi và ở câu cuối. */}
+            <div className="shrink-0 bg-white border-t border-[#E2E8F0] px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="mx-auto max-w-2xl space-y-3">
+                {submitError && (
+                  <div
+                    className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg text-base text-[#0F172A] flex items-start gap-2"
+                    role="alert"
+                  >
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#C53030]" aria-hidden="true" />
+                    <span>{submitError}</span>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
+                    disabled={currentQuestionIndex === 0}
+                    className={BTN_SECONDARY}
+                  >
+                    <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+                    <span>Câu trước</span>
+                  </button>
+
+                  {currentQuestionIndex < questions.length - 1 ? (
+                    <button
+                      onClick={() => setCurrentQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+                      className={BTN_PRIMARY}
+                    >
+                      <span>Câu sau</span>
+                      <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <button onClick={handleRequestFinishExam} className={BTN_SUCCESS}>
+                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                      <span>Nộp bài</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Danh sách câu hỏi: bottom sheet trượt từ đáy (không chiếm chỗ của câu hỏi) */}
+            {showQuestionGrid && (
+              <div
+                className="absolute inset-0 z-[55] flex items-end justify-center"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="exam-nav-title"
+              >
+                <div
+                  className="absolute inset-0 bg-[#0F172A]/50 animate-fade-in"
+                  onClick={() => setShowQuestionGrid(false)}
+                  aria-hidden="true"
+                />
+                <div className="relative w-full max-w-2xl max-h-[88%] bg-white rounded-t-xl shadow-z176 flex flex-col animate-slide-up">
+                  <div className="shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 pt-4 pb-3 border-b border-[#E2E8F0]">
+                    <div>
+                      <h4 id="exam-nav-title" className="text-lg font-bold text-[#0F172A]">
+                        Danh sách câu hỏi
+                      </h4>
+                      <p className="text-base text-[#334155]">
+                        Đã làm <strong className="text-[#006BA1]">{answeredCount}</strong>/{questions.length} câu
+                        {unansweredIndexes.length > 0 && (
+                          <>
+                            {', còn '}
+                            <strong className="text-[#C53030]">{unansweredIndexes.length}</strong> câu chưa làm
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowQuestionGrid(false)}
+                      className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-[10px] font-semibold text-[#334155] hover:bg-[#F6F8FA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                    >
+                      <X className="w-5 h-5" aria-hidden="true" />
+                      <span>Đóng</span>
+                    </button>
+                  </div>
+
+                  <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4" data-lenis-prevent>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#334155]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-md bg-[#008BC5] shrink-0" aria-hidden="true" /> Đang xem
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="w-5 h-5 rounded-md bg-[#EAF6FF] border-[1.5px] border-[#008BC5] shrink-0"
+                          aria-hidden="true"
+                        />{' '}
+                        Đã làm
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="w-5 h-5 rounded-md bg-white border-[1.5px] border-[#CBD5E1] shrink-0"
+                          aria-hidden="true"
+                        />{' '}
+                        Chưa làm
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Flag className="w-4 h-4 text-[#B45309]" fill="currentColor" aria-hidden="true" /> Xem lại
+                        {flaggedCount > 0 && ` (${flaggedCount})`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-5 min-[400px]:grid-cols-6 sm:grid-cols-8 gap-2.5">
+                      {questions.map((q, idx) => {
+                        const isAnswered = (selectedAnswers[q.id] || []).length > 0;
+                        const isCurrent = idx === currentQuestionIndex;
+                        const isFlagged = Boolean(flagged[q.id]);
+                        return (
+                          <button
+                            key={q.id}
+                            onClick={() => handleJumpToQuestion(idx)}
+                            className={`relative aspect-square min-h-[48px] rounded-lg text-base font-bold flex items-center justify-center border-[1.5px] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
+                              isCurrent
+                                ? 'bg-[#008BC5] border-[#008BC5] text-white'
+                                : isAnswered
+                                  ? 'bg-[#EAF6FF] border-[#008BC5] text-[#006BA1]'
+                                  : 'bg-white border-[#CBD5E1] text-[#334155] hover:bg-[#F6F8FA]'
+                            }`}
+                            aria-label={`Câu ${idx + 1}, ${isAnswered ? 'đã làm' : 'chưa làm'}${isFlagged ? ', đã đánh dấu xem lại' : ''}${isCurrent ? ', đang xem' : ''}`}
+                            aria-current={isCurrent ? 'true' : undefined}
+                          >
+                            {idx + 1}
+                            {isAnswered && !isCurrent && (
+                              <Check
+                                className="absolute top-0.5 right-0.5 w-3.5 h-3.5 text-[#008BC5]"
+                                strokeWidth={3}
+                                aria-hidden="true"
+                              />
+                            )}
+                            {isFlagged && (
+                              <Flag
+                                className="absolute top-0.5 left-0.5 w-3.5 h-3.5 text-[#F6AD37]"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 grid grid-cols-2 gap-3 px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[#E2E8F0]">
+                    <button onClick={() => setShowQuestionGrid(false)} className={BTN_SECONDARY}>
+                      Làm tiếp
+                    </button>
+                    <button onClick={handleRequestFinishExam} className={BTN_SUCCESS}>
+                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                      <span>Nộp bài</span>
+                    </button>
                   </div>
                 </div>
-              </>
+              </div>
+            )}
+
+            {/* Hộp xác nhận nộp bài: luôn hiện trước khi nộp, cho biết còn thiếu câu nào */}
+            {confirmSubmitOpen && (
+              <div
+                className="absolute inset-0 z-[58] flex items-center justify-center p-4"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="confirm-submit-title"
+              >
+                <div
+                  className="absolute inset-0 bg-[#0F172A]/60 animate-fade-in"
+                  onClick={() => setConfirmSubmitOpen(false)}
+                  aria-hidden="true"
+                />
+                <div className="relative w-full max-w-md max-h-full overflow-y-auto bg-white rounded-xl p-5 shadow-z176 space-y-4 animate-fade-in">
+                  <h4 id="confirm-submit-title" className="text-xl font-bold text-[#0F172A]">
+                    Nộp bài thi?
+                  </h4>
+
+                  {unansweredIndexes.length > 0 ? (
+                    <div className="bg-[#FFF7E6] border border-[#F6AD37]/60 rounded-lg p-3 space-y-2">
+                      <p className="flex items-start gap-2 text-base text-[#0F172A] leading-relaxed">
+                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#B45309]" aria-hidden="true" />
+                        <span>
+                          Bạn còn <strong>{unansweredIndexes.length}</strong> câu chưa trả lời. Bấm vào số câu để quay
+                          lại làm.
+                        </span>
+                      </p>
+                      <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto" data-lenis-prevent>
+                        {unansweredIndexes.map((idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleJumpToQuestion(idx)}
+                            className="min-h-[44px] min-w-[44px] px-3 rounded-lg bg-white border-[1.5px] border-[#F6AD37] text-[#B45309] font-bold text-base hover:bg-[#FFF7E6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                            aria-label={`Quay lại câu ${idx + 1}`}
+                          >
+                            {idx + 1}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="flex items-start gap-2 text-base text-[#0F172A] leading-relaxed bg-[#F0FDF4] border border-[#22C55E]/50 rounded-lg p-3">
+                      <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-[#166534]" aria-hidden="true" />
+                      <span>
+                        Bạn đã trả lời đủ <strong>{questions.length}/{questions.length}</strong> câu.
+                      </span>
+                    </p>
+                  )}
+
+                  {flaggedCount > 0 && (
+                    <p className="flex items-start gap-2 text-base text-[#0F172A]">
+                      <Flag className="w-5 h-5 shrink-0 mt-0.5 text-[#B45309]" fill="currentColor" aria-hidden="true" />
+                      <span>
+                        Có <strong>{flaggedCount}</strong> câu bạn đã đánh dấu xem lại.
+                      </span>
+                    </p>
+                  )}
+
+                  <p className="text-base text-[#334155]">Sau khi nộp, bạn không thể sửa đáp án.</p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setConfirmSubmitOpen(false)} className={BTN_SECONDARY}>
+                      Làm tiếp
+                    </button>
+                    <button
+                      onClick={() => {
+                        setConfirmSubmitOpen(false);
+                        handleFinishExam();
+                      }}
+                      className={BTN_SUCCESS}
+                    >
+                      Nộp bài
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        {/* STEP: SUBMITTING */}
+        {/* ĐANG NỘP BÀI */}
         {step === 'submitting' && (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500 flex-1">
-            <Loader2 className="w-8 h-8 animate-spin text-[#008BC5]" />
-            <span>Đang nộp bài và chấm điểm...</span>
+          <div
+            className="flex-1 flex flex-col items-center justify-center gap-3 bg-[#F6F8FA] text-[#334155]"
+            role="status"
+          >
+            <Loader2 className="w-10 h-10 animate-spin text-[#008BC5]" aria-hidden="true" />
+            <span className="text-base font-medium">Đang nộp bài và chấm điểm...</span>
+            <span className="text-sm">Vui lòng không đóng trang.</span>
           </div>
         )}
 
-        {/* STEP: AUTO-SUBMITTED (hệ thống tự nộp do rời khỏi ca thi quá 1 phút) */}
+        {/* TỰ ĐỘNG NỘP (rời ca thi quá 1 phút / kỳ thi kết thúc / bị thay thế) */}
         {step === 'auto-submitted' && (
-          <div className="p-6 flex flex-col items-center justify-center gap-3 text-center flex-1">
-            <div className="w-16 h-16 rounded-full bg-[#F6AD37] flex items-center justify-center shadow-z176">
-              <AlertCircle className="w-10 h-10 text-white" />
-            </div>
+          <StatusScreen
+            icon={AlertCircle}
+            tone="warn"
+            title={
+              autoSubmitReason === 'exam_ended'
+                ? 'Kỳ thi đã kết thúc'
+                : autoSubmitReason === 'exam_replaced'
+                  ? 'Kỳ thi đã được thay thế'
+                  : 'Bài thi đã được tự động nộp'
+            }
+            footer={
+              <button onClick={onClose} className={`${BTN_SECONDARY} min-w-[160px]`}>
+                Đóng
+              </button>
+            }
+          >
             {autoSubmitReason === 'exam_ended' ? (
-              <>
-                <h3 className="text-xl font-bold text-[#0F172A]">Kỳ thi đã kết thúc</h3>
-                <p className="text-sm text-[#334155] max-w-sm">
-                  Thời gian của kỳ thi đã kết thúc. Hệ thống đã <strong>tự động nộp và chấm bài</strong> với các đáp án bạn đã
-                  chọn; kết quả đã được lưu.
-                </p>
-                {autoSubmitResult && (
-                  <p className="text-sm font-semibold text-[#0F172A] max-w-sm">
-                    Điểm của bạn: {autoSubmitResult.score}/100 ({autoSubmitResult.correctCount}/{autoSubmitResult.totalQuestions} câu đúng) —{' '}
-                    {autoSubmitResult.passed ? 'Đạt' : 'Chưa đạt'}.
-                  </p>
-                )}
-              </>
+              <p>
+                Thời gian của kỳ thi đã kết thúc. Hệ thống đã <strong>tự động nộp và chấm bài</strong> với các đáp án bạn
+                đã chọn; kết quả đã được lưu.
+              </p>
             ) : autoSubmitReason === 'exam_replaced' ? (
-              <>
-                <h3 className="text-xl font-bold text-[#0F172A]">Kỳ thi đã được thay thế</h3>
-                <p className="text-sm text-[#334155] max-w-sm">
-                  <strong>Người duyệt đề vừa đăng một kỳ thi mới</strong> nên kỳ thi bạn đang làm đã kết thúc. Hệ thống đã
-                  tự động nộp và chấm bài với các đáp án bạn đã chọn tính đến thời điểm này; kết quả đã được lưu.
-                </p>
-                {autoSubmitResult && (
-                  <p className="text-sm font-semibold text-[#0F172A] max-w-sm">
-                    Điểm của bạn: {autoSubmitResult.score}/100 ({autoSubmitResult.correctCount}/{autoSubmitResult.totalQuestions} câu đúng) —{' '}
-                    {autoSubmitResult.passed ? 'Đạt' : 'Chưa đạt'}.
-                  </p>
-                )}
-                <p className="text-sm text-[#334155] max-w-sm">
-                  Nếu bạn cần thi lại, vui lòng liên hệ Người duyệt đề để được xem xét.
-                </p>
-              </>
+              <p>
+                <strong>Người duyệt đề vừa đăng một kỳ thi mới</strong> nên kỳ thi bạn đang làm đã kết thúc. Hệ thống đã
+                tự động nộp và chấm bài với các đáp án bạn đã chọn tính đến thời điểm này; kết quả đã được lưu.
+              </p>
             ) : (
               <>
-                <h3 className="text-xl font-bold text-[#0F172A]">Bài thi đã bị tự động nộp</h3>
-                <p className="text-sm text-[#334155] max-w-sm">
-                  Hệ thống ghi nhận bạn <strong>không có thao tác nào trên trang thi trong hơn 1 phút</strong> — có thể do
-                  chuyển sang tab/ứng dụng khác, khoá màn hình, đóng trình duyệt, hoặc mất kết nối mạng. Để đảm bảo tính
-                  nghiêm túc của kỳ thi, hệ thống đã tự động nộp bài với các đáp án bạn đã chọn gần nhất trước khi rời đi.
+                <p>
+                  Hệ thống ghi nhận bạn <strong>không có thao tác nào trên trang thi trong hơn 1 phút</strong>. Có thể do
+                  chuyển sang tab hoặc ứng dụng khác, khoá màn hình, đóng trình duyệt hoặc mất kết nối mạng. Để đảm bảo
+                  tính nghiêm túc của kỳ thi, hệ thống đã tự động nộp bài với các đáp án bạn đã chọn gần nhất.
                 </p>
-                <p className="text-sm text-[#334155] max-w-sm">
-                  Nếu đây là sự cố ngoài ý muốn (mất mạng, rớt nguồn...) và cần thi lại, vui lòng liên hệ Người duyệt đề
-                  để được xem xét cấp phép cho lượt thi mới.
+                <p>
+                  Nếu đây là sự cố ngoài ý muốn (mất mạng, mất điện...) và cần thi lại, vui lòng liên hệ Người duyệt đề
+                  để được xem xét cấp phép lượt thi mới.
                 </p>
               </>
             )}
-            <button
-              onClick={onClose}
-              className="mt-2 px-6 py-3 bg-[#334155] text-white font-bold text-base rounded-lg hover:bg-[#1e293b] transition-colors min-touch-target"
-            >
-              Đóng
-            </button>
-          </div>
+            {autoSubmitResult && autoSubmitReason !== null && autoSubmitReason !== 'inactive_timeout' && (
+              <p className="text-lg font-bold text-[#0F172A] bg-white border border-[#E2E8F0] rounded-xl py-3 px-4">
+                Điểm của bạn: {autoSubmitResult.score}/100 ({autoSubmitResult.correctCount}/
+                {autoSubmitResult.totalQuestions} câu đúng) - {autoSubmitResult.passed ? 'Đạt' : 'Chưa đạt'}
+              </p>
+            )}
+            {autoSubmitReason === 'exam_replaced' && (
+              <p>Nếu bạn cần thi lại, vui lòng liên hệ Người duyệt đề để được xem xét.</p>
+            )}
+          </StatusScreen>
         )}
 
-        {/* STEP: RESULT SCREEN */}
+        {/* KẾT QUẢ */}
         {step === 'result' && resultData && (
-          <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 text-center" data-lenis-prevent>
-            <div
-              className="w-16 h-16 rounded-full mx-auto flex items-center justify-center shadow-z176"
-              style={{ backgroundColor: resultData.passed ? '#22C55E' : '#E53E3E' }}
-            >
-              {resultData.passed ? (
-                <Award className="w-10 h-10 text-white" />
-              ) : (
-                <AlertCircle className="w-10 h-10 text-white" />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-2xl font-bold text-[#0F172A]">
-                {resultData.passed ? 'XIN CHÚC MỪNG — BẠN ĐÃ ĐẠT!' : 'KẾT QUẢ: CHƯA ĐẠT YÊU CẦU'}
-              </h3>
-              <p className="text-sm text-[#334155] mt-1">{Z176_COMPANY_INFO.contestTitle}</p>
-            </div>
-
-            {/* Score Box */}
-            <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-4 max-w-sm mx-auto space-y-1">
-              <span className="text-sm text-slate-500 font-medium block">Số câu trả lời đúng</span>
-              <div className="text-3xl font-extrabold text-[#0F172A]">
-                {resultData.correctCount} / {resultData.totalQuestions} câu
-              </div>
-              <div className="text-xs font-semibold mt-1">
-                {resultData.passed ? (
-                  <span className="text-[#22C55E]">Đã đáp ứng quy định thi an toàn lao động Z176 ({resultData.score} điểm)</span>
-                ) : (
-                  <span className="text-[#E53E3E]">Điểm của bạn: {resultData.score}</span>
-                )}
-              </div>
-            </div>
-
-            {!resultData.passed && (
-              <div className="max-w-sm mx-auto p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 flex items-start gap-2.5 text-left">
-                <RefreshCw className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" />
-                <span>
-                  Kết quả đã được ghi nhận. Nếu cần thi lại, vui lòng liên hệ Người duyệt đề để được xem xét cấp phép
-                  cho lượt thi mới.
-                </span>
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <button
-                onClick={onClose}
-                className="w-full sm:w-auto px-6 py-3 bg-[#334155] text-white font-bold text-base rounded-lg hover:bg-[#1e293b] transition-colors min-touch-target"
+          <div className="flex-1 overflow-y-auto bg-[#F6F8FA]" data-lenis-prevent>
+            <div className="mx-auto w-full max-w-lg px-4 sm:px-6 py-6 space-y-5 text-center">
+              <div
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-lg font-bold ${
+                  resultData.passed ? 'bg-[#F0FDF4] text-[#166534]' : 'bg-[#FEECEC] text-[#C53030]'
+                }`}
               >
+                {resultData.passed ? (
+                  <Award className="w-6 h-6" aria-hidden="true" />
+                ) : (
+                  <AlertCircle className="w-6 h-6" aria-hidden="true" />
+                )}
+                <span>{resultData.passed ? 'ĐẠT' : 'CHƯA ĐẠT'}</span>
+              </div>
+
+              <div>
+                <h3 className="text-2xl font-bold text-[#0F172A] leading-snug">
+                  {resultData.passed ? 'Chúc mừng, bạn đã đạt yêu cầu!' : 'Rất tiếc, bạn chưa đạt yêu cầu'}
+                </h3>
+                <p className="text-base text-[#334155] mt-1">{Z176_COMPANY_INFO.contestTitle}</p>
+              </div>
+
+              <ScoreRing score={resultData.score} passed={resultData.passed} />
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white border border-[#E2E8F0] rounded-xl py-3 px-2 shadow-z176">
+                  <div className="text-2xl font-extrabold text-[#166534]">{resultData.correctCount}</div>
+                  <div className="text-sm text-[#334155] mt-0.5">câu đúng</div>
+                </div>
+                <div className="bg-white border border-[#E2E8F0] rounded-xl py-3 px-2 shadow-z176">
+                  <div className="text-2xl font-extrabold text-[#C53030]">
+                    {Math.max(0, resultData.totalQuestions - resultData.correctCount)}
+                  </div>
+                  <div className="text-sm text-[#334155] mt-0.5">câu chưa đúng</div>
+                </div>
+                <div className="bg-white border border-[#E2E8F0] rounded-xl py-3 px-2 shadow-z176">
+                  <div className="text-2xl font-extrabold text-[#0F172A]">{resultData.totalQuestions}</div>
+                  <div className="text-sm text-[#334155] mt-0.5">tổng số câu</div>
+                </div>
+              </div>
+
+              {resultData.passed && (
+                <p className="text-base text-[#166534] font-semibold">
+                  Bạn đã đáp ứng quy định thi an toàn lao động Z176.
+                </p>
+              )}
+
+              {!resultData.passed && (
+                <div className="p-3 bg-white border border-[#E2E8F0] rounded-lg text-base text-[#334155] flex items-start gap-3 text-left">
+                  <RefreshCw className="w-5 h-5 shrink-0 mt-0.5 text-[#64748B]" aria-hidden="true" />
+                  <span>
+                    Kết quả đã được ghi nhận. Nếu cần thi lại, vui lòng liên hệ Người duyệt đề để được xem xét cấp phép
+                    cho lượt thi mới.
+                  </span>
+                </div>
+              )}
+
+              <button onClick={onClose} className={`${BTN_PRIMARY} w-full`}>
                 Trở về trang chủ
               </button>
             </div>

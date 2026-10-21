@@ -101,3 +101,18 @@ html.lenis, html.lenis body {
     opacity: 1;
   }
 }
+/* Bottom sheet danh sách câu hỏi trượt lên từ đáy (chỉ transform + opacity). */
+@keyframes slideUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
