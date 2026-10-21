@@ -667,7 +667,9 @@ export const examService = {
 
   // Lấy kỳ thi đang phát hành chính thức hiện tại
   async getActiveExam() {
+    // Route này công khai (trang chủ) nên loại các trường nội bộ: ID người tạo/duyệt, lý do từ chối, khóa phát hành...
     const exam = await Exam.findOne({ status: EXAM_STATUS.PUBLISHED })
+      .select('-createdBy -approvedBy -approvedAt -rejectionReason -deletedAt -deletedByName -publishLockedAt')
       .populate('topicId', 'name')
       .lean();
     return exam;

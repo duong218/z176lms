@@ -56,7 +56,7 @@ export const ResultsLookupSection = ({ onLogin }) => {
           </div>
           <div>
             <h2 className="text-xl font-bold text-[#0F172A]">Tra cứu kết quả thi</h2>
-            <p className="text-sm text-[#334155]">Nhập mã nhân viên hoặc họ tên để tra cứu điểm cá nhân</p>
+            <p className="text-sm text-[#334155]">Nhập mã nhân viên hoặc họ tên đầy đủ để tra cứu điểm cá nhân</p>
           </div>
         </div>
 
@@ -64,7 +64,7 @@ export const ResultsLookupSection = ({ onLogin }) => {
         <form onSubmit={handleSearch} className="bg-slate-50 p-4 rounded-[10px] border border-slate-200 shadow-z176 space-y-3">
           <div>
             <label className="block text-sm font-semibold text-[#0F172A] mb-1">
-              Tìm theo Mã NV-Mã nhân viên hoặc Họ tên:
+              Tìm theo Mã NV-Mã nhân viên hoặc Họ tên đầy đủ:
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">

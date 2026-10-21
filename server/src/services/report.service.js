@@ -331,12 +331,13 @@ export const reportService = {
         $match: {
           $or: [
             { 'employee.employeeCode': { $regex: `^${escaped}$`, $options: 'i' } },
-            { 'employee.fullname': { $regex: escaped, $options: 'i' } },
+            // Khớp NGUYÊN họ tên (không tìm theo một phần) để không quét được cả đơn vị bằng "Nguyễn", "Trần"...
+            { 'employee.fullname': { $regex: `^${escaped}$`, $options: 'i' } },
           ],
         },
       },
       { $sort: { createdAt: -1 } },
-      { $limit: 20 },
+      { $limit: 5 }, // giao diện công khai chỉ hiện 5 kết quả gần nhất (MAX_PUBLIC_RESULTS)
     ];
 
     const data = await Result.aggregate(pipeline);

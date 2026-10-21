@@ -33,7 +33,7 @@ export const env = {
   jwtSecret: optional('JWT_SECRET'),
   jwtRefreshSecret: optional('JWT_REFRESH_SECRET'),
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
-  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '1d',
   bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS ?? 12),
 
   // Cấu hình CORS & Upload file cục bộ

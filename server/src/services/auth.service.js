@@ -39,14 +39,16 @@ export async function getProfileFromAuth(auth) {
   );
 }
 
-// Cấu hình Cookie an toàn cho Refresh Token
-export function refreshCookieOptions() {
+// Cấu hình Cookie an toàn cho Refresh Token. maxAge lấy từ chính hạn `exp` của token
+// nên luôn khớp JWT_REFRESH_EXPIRES_IN (trước đây cookie cứng 7 ngày dù env đặt 1d).
+export function refreshCookieOptions(refreshToken) {
+  const exp = jwt.decode(refreshToken)?.exp;
   return {
     httpOnly: true,
     secure: env.isProduction,
     sameSite: 'lax',
     path: '/api/auth',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: exp ? exp * 1000 - Date.now() : undefined,
   };
 }
 

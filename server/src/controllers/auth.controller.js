@@ -23,8 +23,21 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Thiếu tên đăng nhập hoặc mật khẩu', 'AUTH_VALIDATION');
   }
 
-  const result = await loginWithUsernamePassword(username, password);
-  res.cookie(REFRESH_COOKIE, result.refreshToken, refreshCookieOptions());
+  const name = String(username).trim().toLowerCase().slice(0, 64);
+  // Ghi nhật ký đăng nhập; lỗi ghi log không được làm hỏng đăng nhập (thí sinh đang chờ vào thi).
+  const audit = (action, actorUserId) =>
+    writeAudit({ actorUserId, action, resourceType: 'User', metadata: { username: name }, ipAddress: req.ip }).catch(() => {});
+
+  let result;
+  try {
+    result = await loginWithUsernamePassword(username, password);
+  } catch (err) {
+    if (err.code === 'AUTH_INVALID') await audit('LOGIN_FAIL');
+    if (err.code === 'AUTH_LOCKED') await audit('LOGIN_LOCKED');
+    throw err;
+  }
+  await audit('LOGIN_OK', result.user.id);
+  res.cookie(REFRESH_COOKIE, result.refreshToken, refreshCookieOptions(result.refreshToken));
   res.json({
     success: true,
     message: 'Đăng nhập thành công',
@@ -40,7 +53,7 @@ export const login = asyncHandler(async (req, res) => {
 export const refresh = asyncHandler(async (req, res) => {
   const token = req.cookies?.[REFRESH_COOKIE];
   const result = await refreshAccessToken(token);
-  res.cookie(REFRESH_COOKIE, result.refreshToken, refreshCookieOptions());
+  res.cookie(REFRESH_COOKIE, result.refreshToken, refreshCookieOptions(result.refreshToken));
   res.json({
     success: true,
     message: 'Làm mới phiên thành công',

@@ -15,6 +15,9 @@ const ACTION_LABELS = {
   UNLOCK_USER: 'Mở khóa tài khoản',
   RESET_PASSWORD: 'Đặt lại mật khẩu',
   CHANGE_PASSWORD: 'Đổi mật khẩu',
+  LOGIN_OK: 'Đăng nhập thành công',
+  LOGIN_FAIL: 'Đăng nhập thất bại',
+  LOGIN_LOCKED: 'Đăng nhập vào tài khoản đang bị khóa',
   UPDATE_USER_PROFILE: 'Cập nhật thông tin cá nhân',
   EXPORT_CANDIDATE_CREDENTIALS: 'Xuất danh sách tài khoản nhân viên',
   // Đề thi

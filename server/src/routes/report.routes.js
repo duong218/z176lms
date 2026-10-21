@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { reportController } from '../controllers/report.controller.js';
 import { authenticate, requireRoleCodes } from '../middlewares/auth.middleware.js';
+import { publicLookupRateLimiter } from '../middlewares/rate-limit.middleware.js';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
 // Đặt TRƯỚC router.use(authenticate, ...) bên dưới, giống route /my-results,
 // nếu không middleware sẽ chặn luôn các route này.
 router.get('/public/by-department', reportController.getPublicResultsByDepartment);
-router.get('/public/lookup', reportController.lookupPublicResult);
+router.get('/public/lookup', publicLookupRateLimiter, reportController.lookupPublicResult);
 
 // Thí sinh xem lịch sử kết quả thi CỦA CHÍNH MÌNH.
 // Đặt route này TRƯỚC router.use(...) bên dưới — nếu để sau, middleware

@@ -10,6 +10,12 @@ import { asyncHandler } from '../utils/async-handler.js';
 import { ApiError } from '../utils/api-error.js';
 import { writeAudit } from '../services/audit.service.js';
 
+const DOCUMENT_TYPES = {
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
 // Danh sách tài liệu cho Quản trị viên / Giám khảo / Leader (không lọc phòng ban)
 export const list = asyncHandler(async (req, res) => {
   const { topicId } = req.query;
@@ -78,7 +84,9 @@ export const download = asyncHandler(async (req, res) => {
   const rawName = doc.originalFileName || `${doc.title || 'tai-lieu'}`;
   const encodedName = encodeURIComponent(rawName);
 
-  res.setHeader('Content-Type', doc.mimeType || 'application/octet-stream');
+  // Content-Type suy từ đuôi file (đã lọc khi upload), KHÔNG tin doc.mimeType do client gửi:
+  // file .pdf giả "text/html" mở bằng Blob URL sẽ chạy script trên origin của app.
+  res.setHeader('Content-Type', DOCUMENT_TYPES[path.extname(rawName).toLowerCase()] ?? 'application/octet-stream');
   res.setHeader(
     'Content-Disposition',
     `${mode}; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,

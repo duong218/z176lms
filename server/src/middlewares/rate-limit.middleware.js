@@ -6,6 +6,20 @@
 import rateLimit from 'express-rate-limit';
 import { env } from '../config/env.js';
 
+// Tra cứu kết quả công khai (không đăng nhập): chặn dò quét hàng loạt họ tên/mã NV theo IP.
+// Bật cả ở dev. Sau reverse proxy cần app.set('trust proxy', ...) kẻo mọi người dùng chung 1 IP.
+export const publicLookupRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Tra cứu quá nhanh, vui lòng thử lại sau ít phút.',
+    code: 'PUBLIC_LOOKUP_RATE_LIMIT',
+  },
+});
+
 // Giới hạn tần suất đăng nhập SAI (theo IP + tên đăng nhập) để chống dò quét mật khẩu (brute-force).
 // Chỉ đếm lần đăng nhập thất bại và đếm riêng từng tài khoản: hàng chục máy trong cùng mạng công ty (chung 1 IP)
 // đăng nhập đúng cùng lúc không bị khóa, còn dò mật khẩu một tài khoản vẫn bị chặn sau loginRateLimitMax lần sai.
