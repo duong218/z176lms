@@ -11,6 +11,8 @@ import {
   XCircle,
   Zap,
   ClipboardCheck,
+  Flame,
+  Medal,
 } from 'lucide-react';
 import { useConfirm } from '../ConfirmDialog';
 import { useToast } from '../ToastContext';
@@ -1081,8 +1083,11 @@ export const PracticeProgressCard = ({ onPracticeTopic }) => {
       )}
 
       {achievements?.streakDays > 0 && (
-        <div className="text-sm text-slate-600">
-          🔥 Chuỗi <strong>{achievements.streakDays}</strong> ngày luyện tập liên tiếp
+        <div className="text-base text-[#334155] flex items-center gap-2">
+          <Flame className="w-5 h-5 text-[#F6AD37] shrink-0" aria-hidden="true" />
+          <span>
+            Chuỗi <strong>{achievements.streakDays}</strong> ngày luyện tập liên tiếp
+          </span>
         </div>
       )}
 
@@ -1141,9 +1146,10 @@ export const PracticeProgressCard = ({ onPracticeTopic }) => {
               <span
                 key={b.id}
                 title={b.desc}
-                className="px-3 py-1.5 bg-[#F0FDF4] border border-[#22C55E]/30 text-[#166534] text-xs font-semibold rounded-full"
+                className="px-3 py-1.5 bg-[#F0FDF4] border border-[#22C55E]/30 text-[#166534] text-sm font-semibold rounded-lg inline-flex items-center gap-1.5"
               >
-                🏅 {b.label}
+                <Medal className="w-4 h-4 shrink-0" aria-hidden="true" />
+                {b.label}
               </span>
             ))}
           </div>
