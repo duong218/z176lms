@@ -10,26 +10,25 @@ import {
   fetchPublishImpact,
   archiveExam,
 } from '../../services/exam-review.service';
-import { CheckCircle, XCircle, Clock, Globe, History, Archive, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Globe, History, Archive, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
 import { useToast } from '../ToastContext';
 import { useConfirm } from '../ConfirmDialog';
 import { useScrollLock } from '../../hooks/useScrollLock';
+import { Pagination } from '../Pagination';
+import { ExamStats, ExamStatusBadge, Stat, ScopeLine, senderText } from '../ExamInfo';
 
-// Cấu hình hiển thị badge trạng thái cho bảng "Lịch sử duyệt kỳ thi"
-const STATUS_BADGE = {
-  rejected: { label: 'Đã từ chối', className: 'bg-[#FEECEC] text-[#C53030]' },
-  published: { label: 'Đang phát hành', className: 'bg-[#EAF6FF] text-[#008BC5]' },
-  archived: { label: 'Đã lưu trữ', className: 'bg-[#F6F8FA] text-[#334155]' },
-};
+// Nhãn badge riêng cho bảng "Lịch sử duyệt kỳ thi" (published ở đây nghĩa là đã từng đăng).
+const HISTORY_LABEL = { rejected: 'Đã từ chối', published: 'Đang phát hành', archived: 'Đã lưu trữ' };
 
-function StatusBadge({ status }) {
-  const cfg = STATUS_BADGE[status] || { label: status, className: 'bg-[#F6F8FA] text-[#334155]' };
-  return (
-    <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-semibold ${cfg.className}`}>
-      {cfg.label}
-    </span>
-  );
-}
+const SectionTitle = ({ Icon, color, title, count }) => (
+  <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-[#0F172A]">
+    <Icon className={`w-5 h-5 ${color}`} aria-hidden="true" />
+    {title}
+    {count > 0 && <span className="text-base font-semibold text-[#334155]">({count})</span>}
+  </h2>
+);
+
+const Note = ({ children }) => <div className="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-base text-[#334155]">{children}</div>;
 
 // Nhãn text thuần cho MỌI trạng thái có thể có của Exam (không chỉ 3 trạng
 // thái trong STATUS_BADGE ở trên, vốn chỉ dùng cho bảng "Lịch sử duyệt kỳ
@@ -44,18 +43,6 @@ const STATUS_TEXT_LABELS = {
   published: 'Đang phát hành',
   archived: 'Đã lưu trữ',
 };
-
-// Người gửi (Người ra đề): server trả exam.creator = { name, departmentName }; thiếu họ tên đã lùi về username, thiếu phòng ban thì không có.
-function Sender({ exam }) {
-  const { name, departmentName } = exam.creator ?? {};
-  return (
-    <>
-      <div className="font-medium text-[#0F172A]">{name || '—'}</div>
-      {departmentName && <div className="text-sm text-[#64748B]">{departmentName}</div>}
-    </>
-  );
-}
-const senderText = (exam) => [exam.creator?.name, exam.creator?.departmentName].filter(Boolean).join(' · ') || '—';
 
 // Ô chọn ngày giờ (datetime-local) cho phép chọn "bây giờ" lệch tối đa chừng này (chỉ chính xác tới phút); khớp với server.
 const START_TOLERANCE_MS = 5 * 60 * 1000;
@@ -327,468 +314,213 @@ export const ExamReviewTab = () => {
     setIsRejectModalOpen(true);
   };
 
+  const totalHistoryPages = Math.max(1, Math.ceil(historyExams.length / HISTORY_PAGE_SIZE));
+  const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
+  const pagedHistoryExams = historyExams.slice((safeHistoryPage - 1) * HISTORY_PAGE_SIZE, safeHistoryPage * HISTORY_PAGE_SIZE);
+
+  const fmtDT = (d) => new Date(d).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
+  const metaLine = (exam) => [exam.topicId?.name, `Người gửi: ${senderText(exam)}`].filter(Boolean).join(' · ');
+  const modalTitle = (id) => pendingExams.find((e) => e._id === id)?.title;
+  const inputCls = 'w-full px-3 min-h-[48px] text-base border-[1.5px] border-[#E2E8F0] rounded-[10px] focus:border-[#008BC5] outline-none';
+  const labelCls = 'block text-sm font-semibold text-[#334155] mb-2';
+  const btnGhost = 'flex-1 min-h-[48px] bg-white border-[1.5px] border-[#CBD5E1] hover:bg-[#F6F8FA] text-[#334155] rounded-[10px] text-base font-semibold transition-colors';
+  const btnAction = 'inline-flex items-center justify-center gap-2 px-4 min-h-[48px] rounded-[10px] text-base font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+
   return (
     <div className="space-y-8">
-
-      {/* Pending Exams */}
-      <div>
-        <h2 className="text-lg font-bold text-[#0F172A] mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-[#F6AD37]" />
-          Đề xuất chờ duyệt
-        </h2>
-
+      {/* ── Đề xuất chờ duyệt ── */}
+      <section>
+        <SectionTitle Icon={Clock} color="text-[#F6AD37]" title="Đề xuất chờ duyệt" count={pendingExams.length} />
         {loading ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-base text-[#64748B]">Đang tải...</div>
+          <Note>Đang tải...</Note>
         ) : pendingExams.length === 0 ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-base text-[#64748B]">
-            Không có đề xuất nào đang chờ duyệt
-          </div>
+          <Note>Không có đề xuất nào đang chờ duyệt</Note>
         ) : (
-          <>
-            {/* Desktop Table */}
-            <div className="animate-fade-in-up hidden sm:block bg-white border border-[#E2E8F0] rounded-xl overflow-hidden" style={{ '--stagger-delay': '0ms' }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-[#F6F8FA] text-[#334155] text-base border-b border-[#E2E8F0]">
-                    <tr>
-                      <th className="p-4 font-semibold">Kỳ thi</th>
-                      <th className="p-4 font-semibold">Chủ đề</th>
-                      <th className="p-4 font-semibold">Người gửi</th>
-                      <th className="p-4 font-semibold">Cấu trúc</th>
-                      <th className="p-4 font-semibold text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E2E8F0] text-base">
-                    {pendingExams.map(exam => (
-                      <tr key={exam._id} className="hover:bg-[#F6F8FA] transition-colors">
-                        <td className="p-4 font-medium text-[#0F172A]">{exam.title}</td>
-                        <td className="p-4 text-[#334155]">{exam.topicId?.name}</td>
-                        <td className="p-4 text-[#334155]"><Sender exam={exam} /></td>
-                        <td className="p-4 text-[#334155] text-sm">
-                          <div>Tgian: {exam.durationMinutes}p | Qua: {exam.passThresholdPercent}%</div>
-                          <div>Tổng câu: {exam.totalQuestions} (Chung: {exam.commonQuestionCount}, Riêng: {exam.departmentQuestionCount})</div>
-                          <div>Bù câu chung: {exam.allowCommonCompensation === false ? 'Tắt (phòng thiếu câu riêng bị khóa)' : 'Bật (thiếu câu riêng thì bù câu chung)'}</div>
-                          <div>
-                            Phạm vi:{' '}
-                            <span className="font-medium text-slate-700">
-                              {exam.departmentScope === 'selected'
-                                ? (exam.allowedDepartmentIds ?? [])
-                                    .map((d) => (typeof d === 'object' && d?.name ? d.name : null))
-                                    .filter(Boolean)
-                                    .join(', ') || 'Chỉ định phòng ban'
-                                : 'Tất cả phòng ban'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex gap-2 justify-end">
-                            <button onClick={() => openReject(exam._id)} className="px-3 py-2 bg-[#FEECEC] hover:bg-[#FDD8D8] text-[#C53030] font-semibold rounded-lg transition-colors text-sm min-touch-target">
-                              Từ chối
-                            </button>
-                            <button onClick={() => openApprove(exam._id)} className="px-3 py-2 bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] font-semibold rounded-lg transition-colors text-sm min-touch-target">
-                              Phê duyệt
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Card List */}
-            <div className="animate-fade-in-up sm:hidden space-y-3" style={{ '--stagger-delay': '0ms' }}>
-              {pendingExams.map(exam => (
-                <div key={exam._id} className="bg-white p-4 rounded-xl border border-[#E2E8F0] space-y-3">
-                  <div>
-                    <div className="font-bold text-[#0F172A] text-base">{exam.title}</div>
-                    <div className="text-base text-[#64748B]">{exam.topicId?.name}</div>
-                  </div>
-                  <div className="text-sm text-[#334155] bg-[#F6F8FA] rounded-lg p-2.5 space-y-0.5">
+          <ul className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '0ms' }}>
+            {pendingExams.map((exam) => (
+              <li key={exam._id} className="rounded-xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-z176">
+                <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                  <div className="min-w-0 flex-1 space-y-3">
                     <div>
-                      Người gửi:{' '}
-                      <span className="font-medium text-[#0F172A]">
-                        {senderText(exam)}
-                      </span>
+                      <h3 className="text-lg font-bold text-[#0F172A] leading-snug break-words">{exam.title}</h3>
+                      <p className="text-base text-[#334155] break-words">{metaLine(exam)}</p>
                     </div>
-                    <div>Thời gian: {exam.durationMinutes} phút · Qua: {exam.passThresholdPercent}%</div>
-                    <div>Tổng câu: {exam.totalQuestions} (Chung: {exam.commonQuestionCount}, Riêng: {exam.departmentQuestionCount})</div>
-                    <div>Bù câu chung: {exam.allowCommonCompensation === false ? 'Tắt (phòng thiếu câu riêng bị khóa)' : 'Bật (thiếu câu riêng thì bù câu chung)'}</div>
-                    <div>
-                      Phạm vi:{' '}
-                      <span className="font-medium text-slate-700">
-                        {exam.departmentScope === 'selected'
-                          ? (exam.allowedDepartmentIds ?? [])
-                              .map((d) => (typeof d === 'object' && d?.name ? d.name : null))
-                              .filter(Boolean)
-                              .join(', ') || 'Chỉ định phòng ban'
-                          : 'Tất cả phòng ban'}
-                      </span>
-                    </div>
+                    <ExamStats exam={exam} />
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => openReject(exam._id)} className="flex-1 h-11 bg-[#FEECEC] hover:bg-[#FDD8D8] text-[#C53030] font-semibold rounded-lg transition-colors text-base min-touch-target">
-                      Từ chối
+                  <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 lg:w-44 shrink-0">
+                    <button
+                      onClick={() => openApprove(exam._id)}
+                      className={`${btnAction} col-span-2 lg:col-span-1 bg-[#008BC5] hover:bg-[#0693E3] active:bg-[#006BA1] text-white`}
+                    >
+                      <CheckCircle className="w-4 h-4" aria-hidden="true" /> Phê duyệt
                     </button>
-                    <button onClick={() => openApprove(exam._id)} className="flex-1 h-11 bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] font-semibold rounded-lg transition-colors text-base min-touch-target">
-                      Phê duyệt
+                    <button
+                      onClick={() => openReject(exam._id)}
+                      className={`${btnAction} col-span-2 lg:col-span-1 bg-white border-[1.5px] border-[#E53E3E] hover:bg-[#FEECEC] text-[#C53030]`}
+                    >
+                      <XCircle className="w-4 h-4" aria-hidden="true" /> Từ chối
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
+              </li>
+            ))}
+          </ul>
         )}
-      </div>
+      </section>
 
-      {/* Approved Exams */}
-      <div>
-        <h2 className="text-lg font-bold text-[#0F172A] mb-4 flex items-center gap-2">
-          <CheckCircle className="w-5 h-5 text-[#22C55E]" />
-          Kỳ thi đã duyệt (Chờ phát hành)
-        </h2>
-
+      {/* ── Kỳ thi đã duyệt, chờ phát hành ── */}
+      <section>
+        <SectionTitle Icon={CheckCircle} color="text-[#22C55E]" title="Kỳ thi đã duyệt (Chờ phát hành)" count={approvedExams.length} />
         {loading ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-base text-[#64748B]">Đang tải...</div>
+          <Note>Đang tải...</Note>
         ) : approvedExams.length === 0 ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-base text-[#64748B]">
-            Không có kỳ thi nào đang chờ phát hành
-          </div>
+          <Note>Không có kỳ thi nào đang chờ phát hành</Note>
         ) : (
-          <>
-            {/* Desktop Table */}
-            <div className="animate-fade-in-up hidden sm:block bg-white border border-[#E2E8F0] rounded-xl overflow-hidden" style={{ '--stagger-delay': '100ms' }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-[#F6F8FA] text-[#334155] text-base border-b border-[#E2E8F0]">
-                    <tr>
-                      <th className="p-4 font-semibold">Kỳ thi</th>
-                      <th className="p-4 font-semibold">Chủ đề</th>
-                      <th className="p-4 font-semibold">Người gửi</th>
-                      <th className="p-4 font-semibold">Thời gian diễn ra</th>
-                      <th className="p-4 font-semibold text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E2E8F0] text-base">
-                    {approvedExams.map(exam => (
-                      <tr key={exam._id} className="hover:bg-[#F6F8FA] transition-colors">
-                        <td className="p-4 font-medium text-[#0F172A]">{exam.title}</td>
-                        <td className="p-4 text-[#334155]">{exam.topicId?.name}</td>
-                        <td className="p-4 text-[#334155]"><Sender exam={exam} /></td>
-                        <td className="p-4 text-[#334155] text-sm">
-                          <div>Bắt đầu: {new Date(exam.startDate).toLocaleString('vi-VN')}</div>
-                          <div>Kết thúc: {new Date(exam.endDate).toLocaleString('vi-VN')}</div>
-                          {new Date(exam.endDate).getTime() <= Date.now() && (
-                            <div className="font-semibold text-[#C53030]">Đã quá thời gian kết thúc</div>
-                          )}
-                          <div>
-                            Phạm vi:{' '}
-                            <span className="font-medium text-slate-700">
-                              {exam.departmentScope === 'selected'
-                                ? (exam.allowedDepartmentIds ?? [])
-                                    .map((d) => (typeof d === 'object' && d?.name ? d.name : null))
-                                    .filter(Boolean)
-                                    .join(', ') || 'Chỉ định phòng ban'
-                                : 'Tất cả phòng ban'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex gap-2 justify-end items-center">
-                            <button
-                              onClick={() => handleArchive(exam._id)}
-                              disabled={archivingId === exam._id || publishingId === exam._id}
-                              className="px-3 py-2 bg-[#F6F8FA] hover:bg-[#E2E8F0] text-[#334155] font-semibold rounded-lg transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed min-touch-target"
-                            >
-                              {archivingId === exam._id ? 'Đang xử lý...' : 'Bỏ qua'}
-                            </button>
-                            <button
-                              onClick={() => handlePublish(exam._id)}
- title={isExpired(exam) ? 'Kỳ thi đã quá hạn, không thể đăng chính thức' : undefined}
-                              disabled={publishingId === exam._id || archivingId === exam._id || isExpired(exam)}
-                              className="px-3 py-2 bg-[#008BC5] hover:bg-[#0693E3] text-white font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-sm disabled:opacity-60 disabled:cursor-not-allowed min-touch-target"
-                            >
-                              <Globe className="w-4 h-4" />
-                              {publishingId === exam._id ? 'Đang đăng...' : 'Đăng chính thức'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Card List */}
-            <div className="animate-fade-in-up sm:hidden space-y-3" style={{ '--stagger-delay': '100ms' }}>
-              {approvedExams.map(exam => (
-                <div key={exam._id} className="bg-white p-4 rounded-xl border border-[#E2E8F0] space-y-3">
-                  <div>
-                    <div className="font-bold text-[#0F172A] text-base">{exam.title}</div>
-                    <div className="text-base text-[#64748B]">{exam.topicId?.name}</div>
-                  </div>
-                  <div className="text-sm text-[#334155] bg-[#F6F8FA] rounded-lg p-2.5 space-y-0.5">
-                    <div>Người gửi: <span className="font-medium text-[#0F172A]">{senderText(exam)}</span></div>
-                    <div>Bắt đầu: {new Date(exam.startDate).toLocaleString('vi-VN')}</div>
-                    <div>Kết thúc: {new Date(exam.endDate).toLocaleString('vi-VN')}</div>
-                    {new Date(exam.endDate).getTime() <= Date.now() && (
-                      <div className="font-semibold text-[#C53030]">Đã quá thời gian kết thúc</div>
-                    )}
-                    <div>
-                      Phạm vi:{' '}
-                      <span className="font-medium text-slate-700">
-                        {exam.departmentScope === 'selected'
-                          ? (exam.allowedDepartmentIds ?? [])
-                              .map((d) => (typeof d === 'object' && d?.name ? d.name : null))
-                              .filter(Boolean)
-                              .join(', ') || 'Chỉ định phòng ban'
-                          : 'Tất cả phòng ban'}
-                      </span>
+          <ul className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '100ms' }}>
+            {approvedExams.map((exam) => {
+              const busy = publishingId === exam._id || archivingId === exam._id;
+              return (
+                <li key={exam._id} className="rounded-xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-z176">
+                  <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div>
+                        <h3 className="text-lg font-bold text-[#0F172A] leading-snug break-words">{exam.title}</h3>
+                        <p className="text-base text-[#334155] break-words">{metaLine(exam)}</p>
+                      </div>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Stat Icon={CalendarClock} label="Bắt đầu" value={fmtDT(exam.startDate)} />
+                        <Stat Icon={CalendarClock} label="Kết thúc" value={fmtDT(exam.endDate)} />
+                      </dl>
+                      {isExpired(exam) && (
+                        <p className="flex items-center gap-2 text-base font-semibold text-[#C53030]">
+                          <AlertTriangle className="w-5 h-5 shrink-0" aria-hidden="true" /> Đã quá thời gian kết thúc
+                        </p>
+                      )}
+                      <ScopeLine exam={exam} />
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 lg:w-44 shrink-0">
+                      <button
+                        onClick={() => handlePublish(exam._id)}
+                        title={isExpired(exam) ? 'Kỳ thi đã quá hạn, không thể đăng chính thức' : undefined}
+                        disabled={busy || isExpired(exam)}
+                        className={`${btnAction} col-span-2 lg:col-span-1 bg-[#008BC5] hover:bg-[#0693E3] active:bg-[#006BA1] text-white`}
+                      >
+                        <Globe className="w-4 h-4" aria-hidden="true" /> {publishingId === exam._id ? 'Đang đăng...' : 'Đăng chính thức'}
+                      </button>
+                      <button
+                        onClick={() => handleArchive(exam._id)}
+                        disabled={busy}
+                        className={`${btnAction} col-span-2 lg:col-span-1 bg-white border-[1.5px] border-[#CBD5E1] hover:bg-[#F6F8FA] text-[#334155]`}
+                      >
+                        <Archive className="w-4 h-4" aria-hidden="true" /> {archivingId === exam._id ? 'Đang xử lý...' : 'Bỏ qua'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleArchive(exam._id)}
-                      disabled={archivingId === exam._id || publishingId === exam._id}
-                      className="flex-1 h-11 bg-[#F6F8FA] hover:bg-[#E2E8F0] text-[#334155] font-semibold rounded-lg transition-colors text-base disabled:opacity-60 disabled:cursor-not-allowed min-touch-target"
-                    >
-                      {archivingId === exam._id ? 'Đang xử lý...' : 'Bỏ qua'}
-                    </button>
-                    <button
-                      onClick={() => handlePublish(exam._id)}
- title={isExpired(exam) ? 'Kỳ thi đã quá hạn, không thể đăng chính thức' : undefined}
-                      disabled={publishingId === exam._id || archivingId === exam._id || isExpired(exam)}
-                      className="flex-1 h-11 bg-[#008BC5] hover:bg-[#0693E3] text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 text-base disabled:opacity-60 disabled:cursor-not-allowed min-touch-target"
-                    >
-                      <Globe className="w-4 h-4" />
-                      {publishingId === exam._id ? 'Đang đăng...' : 'Đăng chính thức'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </div>
+      </section>
 
-      {/* Lịch sử duyệt kỳ thi — không xóa dấu vết sau khi Duyệt/Từ chối/Đăng chính thức/Bỏ qua */}
-      <div>
-        <h2 className="text-lg font-bold text-[#0F172A] mb-4 flex items-center gap-2">
-          <History className="w-5 h-5 text-[#64748B]" />
-          Lịch sử duyệt kỳ thi
-        </h2>
-
-        {(() => {
-          const totalHistoryPages = Math.max(1, Math.ceil(historyExams.length / HISTORY_PAGE_SIZE));
-          const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
-          const pagedHistoryExams = historyExams.slice(
-            (safeHistoryPage - 1) * HISTORY_PAGE_SIZE,
-            safeHistoryPage * HISTORY_PAGE_SIZE,
-          );
-          return (
-
-        loading ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-base text-[#64748B]">Đang tải...</div>
+      {/* ── Lịch sử duyệt kỳ thi — không xóa dấu vết sau khi Duyệt/Từ chối/Đăng chính thức/Bỏ qua ── */}
+      <section>
+        <SectionTitle Icon={History} color="text-[#64748B]" title="Lịch sử duyệt kỳ thi" count={historyExams.length} />
+        {loading ? (
+          <Note>Đang tải...</Note>
         ) : historyExams.length === 0 ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-xl p-8 text-center text-base text-[#64748B]">
-            Chưa có kỳ thi nào được xử lý
-          </div>
+          <Note>Chưa có kỳ thi nào được xử lý</Note>
         ) : (
           <>
-            {/* Desktop Table */}
-            <div className="animate-fade-in-up hidden sm:block bg-white border border-[#E2E8F0] rounded-xl overflow-hidden" style={{ '--stagger-delay': '200ms' }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left table-fixed">
-                  <colgroup>
-                    <col className="w-[22%]" />
-                    <col className="w-[15%]" />
-                    <col className="w-[18%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[14%]" />
-                    <col className="w-[19%]" />
-                  </colgroup>
-                  <thead className="bg-[#F6F8FA] text-[#334155] text-base border-b border-[#E2E8F0]">
-                    <tr>
-                      <th className="p-4 font-semibold">Kỳ thi</th>
-                      <th className="p-4 font-semibold">Chủ đề</th>
-                      <th className="p-4 font-semibold">Người gửi</th>
-                      <th className="p-4 font-semibold">Trạng thái</th>
-                      <th className="p-4 font-semibold">Thời gian xử lý</th>
-                      <th className="p-4 font-semibold">Ghi chú</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E2E8F0] text-base">
-                    {pagedHistoryExams.map(exam => {
-                      const processedAt = exam.publishedAt || exam.approvedAt || exam.updatedAt || exam.createdAt;
-                      return (
-                        // exam.deletedAt: đề bị từ chối mà Người ra đề đã xóa — giữ lại làm bằng chứng, hiển thị mờ đi
-                        <tr key={exam._id} className={`transition-colors ${exam.deletedAt ? 'opacity-60 bg-[#F6F8FA]' : 'hover:bg-[#F6F8FA]'}`}>
-                          <td className="p-4 font-medium text-[#0F172A] truncate" title={exam.title}>{exam.title}</td>
-                          <td className="p-4 text-[#334155] truncate" title={exam.topicId?.name}>{exam.topicId?.name}</td>
-                          <td className="p-4 text-[#334155] break-words"><Sender exam={exam} /></td>
-                          <td className="p-4">
-                            <StatusBadge status={exam.status} />
-                          </td>
-                          <td className="p-4 text-[#334155] text-sm">
-                            {processedAt ? new Date(processedAt).toLocaleString('vi-VN') : '—'}
-                          </td>
-                          <td className="p-4 text-sm break-words">
-                            {exam.status === 'rejected' ? (
-                              <>
-                                <span className="text-[#C53030]">{exam.rejectionReason || 'Không có lý do'}</span>
-                                {exam.deletedAt && (
-                                  <span className="mt-1 flex items-start gap-1 font-semibold text-[#334155]">
-                                    <Trash2 className="w-4 h-4 shrink-0 mt-0.5" />
-                                    <span>Đã bị xóa bởi {exam.deletedByName || 'Người ra đề'} lúc {new Date(exam.deletedAt).toLocaleString('vi-VN')}</span>
-                                  </span>
-                                )}
-                              </>
-                            ) : exam.status === 'archived' ? (
-                              <span className="flex items-center gap-1 text-[#64748B]">
-                                <Archive className="w-4 h-4 shrink-0" /> <span className="truncate">Đã bị thay thế bởi kỳ thi khác hoặc bị bỏ qua</span>
-                              </span>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Card List */}
-            <div className="animate-fade-in-up sm:hidden space-y-3" style={{ '--stagger-delay': '200ms' }}>
-              {pagedHistoryExams.map(exam => {
+            <ul className="animate-fade-in-up bg-white border border-[#E2E8F0] rounded-xl divide-y divide-[#E2E8F0] overflow-hidden" style={{ '--stagger-delay': '200ms' }}>
+              {pagedHistoryExams.map((exam) => {
                 const processedAt = exam.publishedAt || exam.approvedAt || exam.updatedAt || exam.createdAt;
                 return (
-                  <div key={exam._id} className={`p-4 rounded-xl border border-[#E2E8F0] space-y-2 ${exam.deletedAt ? 'opacity-60 bg-[#F6F8FA]' : 'bg-white'}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-bold text-[#0F172A] text-base">{exam.title}</div>
-                        <div className="text-base text-[#64748B]">{exam.topicId?.name}</div>
+                  // exam.deletedAt: đề bị từ chối mà Người ra đề đã xóa — giữ lại làm bằng chứng, nền xám + dòng chữ ghi rõ
+                  <li key={exam._id} className={`p-4 sm:p-5 space-y-2 ${exam.deletedAt ? 'bg-[#F6F8FA]' : ''}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold text-[#0F172A] break-words">{exam.title}</h3>
+                        <p className="text-base text-[#334155] break-words">{metaLine(exam)}</p>
                       </div>
-                      <StatusBadge status={exam.status} />
-                    </div>
-                    <div className="text-sm text-[#64748B]">Người gửi: {senderText(exam)}</div>
-                    <div className="text-sm text-[#64748B]">
-                      {processedAt ? new Date(processedAt).toLocaleString('vi-VN') : '—'}
+                      <div className="flex flex-col items-start sm:items-end gap-1">
+                        <ExamStatusBadge status={exam.status} label={HISTORY_LABEL[exam.status]} />
+                        <span className="text-sm text-[#334155]">{processedAt ? fmtDT(processedAt) : '—'}</span>
+                      </div>
                     </div>
                     {exam.status === 'rejected' && (
-                      <div className="text-sm text-[#C53030] bg-[#FEECEC] rounded-lg p-2.5">
-                        Lý do: {exam.rejectionReason || 'Không có lý do'}
-                      </div>
+                      <p className="rounded-lg bg-[#FEECEC] border border-[#E53E3E]/30 p-3 text-base text-[#C53030]">
+                        <b>Lý do:</b> {exam.rejectionReason || 'Không có lý do'}
+                      </p>
                     )}
                     {exam.status === 'rejected' && exam.deletedAt && (
-                      <div className="flex items-start gap-1.5 text-sm font-semibold text-[#334155]">
-                        <Trash2 className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>Đã bị xóa bởi {exam.deletedByName || 'Người ra đề'} lúc {new Date(exam.deletedAt).toLocaleString('vi-VN')}</span>
-                      </div>
+                      <p className="flex items-start gap-2 text-base font-semibold text-[#334155]">
+                        <Trash2 className="w-4 h-4 shrink-0 mt-1" aria-hidden="true" />
+                        <span>Đã bị xóa bởi {exam.deletedByName || 'Người ra đề'} lúc {fmtDT(exam.deletedAt)}</span>
+                      </p>
                     )}
                     {exam.status === 'archived' && (
-                      <div className="flex items-center gap-1.5 text-sm text-[#64748B]">
-                        <Archive className="w-4 h-4 shrink-0" /> Đã bị thay thế bởi kỳ thi khác hoặc bị bỏ qua
-                      </div>
+                      <p className="flex items-start gap-2 text-base text-[#334155]">
+                        <Archive className="w-4 h-4 shrink-0 mt-1" aria-hidden="true" /> Đã bị thay thế bởi kỳ thi khác hoặc bị bỏ qua
+                      </p>
                     )}
-                  </div>
+                  </li>
                 );
               })}
+            </ul>
+            <div className="mt-3">
+              <Pagination page={safeHistoryPage} pageCount={totalHistoryPages} onChange={setHistoryPage} />
             </div>
-
-            {/* Phân trang: 10 dòng/trang */}
-            {totalHistoryPages > 1 && (
-              <div className="flex items-center justify-between gap-3 mt-4 text-sm text-[#334155]">
-                <span>
-                  Trang {safeHistoryPage}/{totalHistoryPages} · {historyExams.length} kỳ thi
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-                    disabled={safeHistoryPage <= 1}
-                    className="px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F6F8FA] min-touch-target"
-                  >
-                    Trước
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
-                    disabled={safeHistoryPage >= totalHistoryPages}
-                    className="px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F6F8FA] min-touch-target"
-                  >
-                    Sau
-                  </button>
-                </div>
-              </div>
-            )}
           </>
-        )
-        );
-        })()}
-      </div>
+        )}
+      </section>
 
       {/* Modals — render qua portal vào document.body: nếu để nằm trong cây của tab thì `fixed` bị neo theo
           phần tử cha có animation/transform (animate-fade-in-up) của dashboard, khiến lớp phủ chỉ phủ vùng
           nội dung tab và hộp thoại bị căn giữa ở GIỮA CẢ TRANG DÀI -> nằm ngoài màn hình, không thấy ô chọn thời gian. */}
-
-      {/* Approve Modal */}
       {isApproveModalOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-hidden border border-slate-100 flex flex-col my-auto" data-lenis-prevent>
-            <div className="p-4 sm:p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-label="Phê duyệt đề xuất kỳ thi" className="bg-white rounded-xl shadow-z176 w-full max-w-md max-h-[90dvh] overflow-hidden border border-[#E2E8F0] flex flex-col my-auto" data-lenis-prevent>
+            <div className="p-4 sm:p-5 border-b border-[#E2E8F0] flex justify-between items-center bg-[#F6F8FA] shrink-0">
               <h3 className="font-bold text-lg text-[#0F172A]">Phê duyệt đề xuất kỳ thi</h3>
-              <button
-                onClick={() => setIsApproveModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-2 -mr-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg"
-              >
-                <XCircle className="w-5 h-5" />
+              <button type="button" onClick={() => setIsApproveModalOpen(false)} aria-label="Đóng" className="text-[#334155] hover:bg-[#E2E8F0] -mr-2 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-[10px]">
+                <XCircle className="w-6 h-6" aria-hidden="true" />
               </button>
             </div>
             <form onSubmit={handleApprove} noValidate className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+              {modalTitle(approveId) && <p className="text-base text-[#334155]">Kỳ thi: <b className="text-[#0F172A]">{modalTitle(approveId)}</b></p>}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Thời gian bắt đầu</label>
+                <label htmlFor="approve-start" className={labelCls}>Thời gian bắt đầu</label>
                 <input
+                  id="approve-start"
                   required
                   type="datetime-local"
                   min={minStart}
                   value={startDate}
                   onChange={(e) => { setStartDate(e.target.value); setDateError(''); }}
-                  className="w-full p-2.5 text-base border border-slate-300 rounded-lg focus:border-[#008BC5] outline-none"
+                  className={inputCls}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Thời gian kết thúc</label>
+                <label htmlFor="approve-end" className={labelCls}>Thời gian kết thúc</label>
                 <input
+                  id="approve-end"
                   required
                   type="datetime-local"
                   min={startDate || minStart}
                   value={endDate}
                   onChange={(e) => { setEndDate(e.target.value); setDateError(''); }}
-                  className="w-full p-2.5 text-base border border-slate-300 rounded-lg focus:border-[#008BC5] outline-none"
+                  className={inputCls}
                 />
               </div>
               {dateError && (
-                <p role="alert" className="text-sm font-medium text-[#C53030] bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg px-3 py-2">
+                <p role="alert" className="text-base font-medium text-[#C53030] bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg px-3 py-2">
                   {dateError}
                 </p>
               )}
-              <div className="pt-2 flex gap-3 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setIsApproveModalOpen(false)}
-                  className="flex-1 py-3 min-h-[46px] border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-3 min-h-[46px] bg-[#008BC5] text-white rounded-lg font-semibold hover:bg-[#007ba1] active:bg-[#007ba1] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setIsApproveModalOpen(false)} className={btnGhost}>Hủy</button>
+                <button type="submit" disabled={isSubmitting} className={`${btnAction} flex-1 bg-[#008BC5] hover:bg-[#0693E3] active:bg-[#006BA1] text-white`}>
                   {isSubmitting ? 'Đang xử lý...' : 'Xác nhận duyệt'}
                 </button>
               </div>
@@ -798,44 +530,32 @@ export const ExamReviewTab = () => {
         document.body,
       )}
 
-      {/* Reject Modal */}
       {isRejectModalOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-hidden border border-slate-100 flex flex-col my-auto" data-lenis-prevent>
-            <div className="p-4 sm:p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-label="Từ chối đề xuất kỳ thi" className="bg-white rounded-xl shadow-z176 w-full max-w-md max-h-[90dvh] overflow-hidden border border-[#E2E8F0] flex flex-col my-auto" data-lenis-prevent>
+            <div className="p-4 sm:p-5 border-b border-[#E2E8F0] flex justify-between items-center bg-[#F6F8FA] shrink-0">
               <h3 className="font-bold text-lg text-[#0F172A]">Từ chối đề xuất kỳ thi</h3>
-              <button
-                onClick={() => setIsRejectModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-2 -mr-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg"
-              >
-                <XCircle className="w-5 h-5" />
+              <button type="button" onClick={() => setIsRejectModalOpen(false)} aria-label="Đóng" className="text-[#334155] hover:bg-[#E2E8F0] -mr-2 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-[10px]">
+                <XCircle className="w-6 h-6" aria-hidden="true" />
               </button>
             </div>
             <form onSubmit={handleReject} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+              {modalTitle(rejectId) && <p className="text-base text-[#334155]">Kỳ thi: <b className="text-[#0F172A]">{modalTitle(rejectId)}</b></p>}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Lý do từ chối</label>
+                <label htmlFor="reject-reason" className={labelCls}>Lý do từ chối</label>
                 <textarea
+                  id="reject-reason"
                   required
                   rows="3"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Nhập lý do từ chối để Người ra đề chỉnh sửa lại..."
-                  className="w-full p-2.5 text-base border border-slate-300 rounded-lg focus:border-[#008BC5] outline-none"
+                  className="w-full p-3 text-base border-[1.5px] border-[#E2E8F0] rounded-[10px] focus:border-[#008BC5] outline-none"
                 />
               </div>
-              <div className="pt-2 flex gap-3 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setIsRejectModalOpen(false)}
-                  className="flex-1 py-3 min-h-[46px] border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-3 min-h-[46px] bg-[#E53E3E] text-white rounded-lg font-semibold hover:bg-red-700 active:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setIsRejectModalOpen(false)} className={btnGhost}>Hủy</button>
+                <button type="submit" disabled={isSubmitting} className={`${btnAction} flex-1 bg-[#E53E3E] hover:bg-[#C53030] text-white`}>
                   {isSubmitting ? 'Đang xử lý...' : 'Từ chối'}
                 </button>
               </div>

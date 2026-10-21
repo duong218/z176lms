@@ -15,7 +15,7 @@ const norm = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd'
 
 // Màu luôn đi kèm chữ "Đang diễn ra" (không chỉ dựa vào màu xanh)
 const Live = () => (
-  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-sm font-semibold bg-[#E8F8EE] text-[#15803D]">
+  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-semibold bg-[#F0FDF4] text-[#166534]">
     <span className="w-2 h-2 rounded-full bg-[#22C55E]" aria-hidden="true" />
     Đang diễn ra
   </span>
@@ -24,11 +24,11 @@ const Live = () => (
 const Section = ({ icon, title, hint, count, children }) => (
   <section className="space-y-2.5">
     <div>
-      <h3 className="text-base font-bold text-[#0F172A] flex items-center gap-2">
+      <h3 className="text-lg font-bold text-[#0F172A] flex items-center gap-2">
         {icon}
-        {title} <span className="text-[#64748B] font-medium">({count})</span>
+        {title} <span className="text-[#334155] font-medium">({count})</span>
       </h3>
-      <p className="text-sm text-[#64748B] mt-0.5">{hint}</p>
+      <p className="text-sm text-[#334155] mt-0.5">{hint}</p>
     </div>
     {children}
   </section>
@@ -42,15 +42,15 @@ const Empty = ({ text, skip }) => (
   </p>
 );
 
-const Rows = ({ children }) => <div className="bg-white rounded-xl border border-[#E2E8F0] divide-y divide-[#E2E8F0]">{children}</div>;
+const Rows = ({ children }) => <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-z176 divide-y divide-[#E2E8F0] overflow-hidden">{children}</div>;
 
 const Row = ({ title, sub, badge }) => (
   <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-4">
     <div className="min-w-0">
       <p className="text-base font-semibold text-[#0F172A] break-words">{title}</p>
-      {sub && <p className="text-sm text-[#64748B] break-words">{sub}</p>}
+      {sub && <p className="text-sm text-[#334155] break-words">{sub}</p>}
     </div>
-    <span className="self-start sm:self-auto shrink-0 px-2.5 py-1 rounded-full text-sm font-semibold bg-[#FFF7E6] text-[#B7791F]">{badge}</span>
+    <span className="self-start sm:self-auto shrink-0 px-3 py-1.5 rounded-lg border border-[#F6AD37]/50 text-base font-semibold bg-[#FFF7E6] text-[#B45309]">{badge}</span>
   </div>
 );
 
@@ -138,9 +138,9 @@ export const AnomalyTab = () => {
   return (
     <div className="space-y-5">
       <div className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '0ms' }}>
-        <h2 className="text-lg font-bold text-[#0F172A]">Dấu hiệu bất thường</h2>
+        <h2 className="text-xl font-bold text-[#0F172A]">Dấu hiệu bất thường</h2>
         <p className="flex items-start gap-2 rounded-xl border border-[#F6AD37]/40 bg-[#FFF7E6] px-4 py-3 text-base text-[#334155]">
-          <ShieldAlert className="w-5 h-5 text-[#B7791F] shrink-0 mt-0.5" />
+          <ShieldAlert className="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" />
           Đây chỉ là gợi ý để xem xét, không kết luận gian lận. Nên đối chiếu thêm bối cảnh trước khi trao đổi với thí sinh.
         </p>
 
@@ -176,15 +176,15 @@ export const AnomalyTab = () => {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden">
-            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-z176 overflow-hidden">
+            <div className="px-4 py-3 sm:px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm text-[#64748B]">Đang xem kỳ thi</p>
+                  <p className="text-sm text-[#334155]">Đang xem kỳ thi</p>
                   {exam.running && <Live />}
                 </div>
                 <p className="text-base font-bold text-[#0F172A] break-words">{exam.title}</p>
-                <p className="text-sm text-[#64748B]">
+                <p className="text-sm text-[#334155]">
                   {exam.attempts} lượt đã nộp · {total(exam)} dấu hiệu
                   {!exam.running && exam.endsAt ? ` · Kết thúc ${fmt(exam.endsAt)}` : ''}
                 </p>
@@ -202,6 +202,21 @@ export const AnomalyTab = () => {
                 </button>
               )}
             </div>
+
+            <dl className="grid grid-cols-3 divide-x divide-[#E2E8F0] border-t border-[#E2E8F0] bg-[#F6F8FA]">
+              {[
+                [Users, 'Cùng sai', pairs.length],
+                [Timer, 'Làm nhanh', fast.length],
+                [EyeOff, 'Rời màn hình', leaves.length],
+              ].map(([Icon, name, n]) => (
+                <div key={name} className="px-3 py-3 sm:px-5 text-center sm:text-left">
+                  <dt className="flex items-center justify-center sm:justify-start gap-1.5 text-sm text-[#334155]">
+                    <Icon className="w-4 h-4 shrink-0" aria-hidden="true" /> {name}
+                  </dt>
+                  <dd className={`text-xl font-bold ${n > 0 ? 'text-[#B45309]' : 'text-[#0F172A]'}`}>{n}</dd>
+                </div>
+              ))}
+            </dl>
 
             {picking && (
               <div id="exam-picker" className="border-t border-[#E2E8F0] bg-[#F8FAFC] p-3 space-y-3">
@@ -246,10 +261,10 @@ export const AnomalyTab = () => {
                                   <Live />
                                 </span>
                               ) : (
-                                e.endsAt && <span className="block text-sm text-[#64748B]">Kết thúc {fmt(e.endsAt)}</span>
+                                e.endsAt && <span className="block text-sm text-[#334155]">Kết thúc {fmt(e.endsAt)}</span>
                               )}
                             </span>
-                            <span className="shrink-0 flex items-center gap-1.5 text-sm font-semibold text-[#B7791F]">
+                            <span className="shrink-0 flex items-center gap-1.5 text-sm font-semibold text-[#B45309]">
                               {total(e)} dấu hiệu
                               {active && <Check className="w-4 h-4 text-[#008BC5]" aria-hidden="true" />}
                             </span>
@@ -265,7 +280,7 @@ export const AnomalyTab = () => {
           </div>
 
           <Section
-            icon={<Users className="w-5 h-5 text-[#B7791F]" />}
+            icon={<Users className="w-5 h-5 text-[#B45309]" />}
             title="Cùng sai giống nhau"
             hint="Hai thí sinh cùng chọn một đáp án sai ở nhiều câu."
             count={pairs.length}
@@ -293,7 +308,7 @@ export const AnomalyTab = () => {
           </Section>
 
           <Section
-            icon={<Timer className="w-5 h-5 text-[#B7791F]" />}
+            icon={<Timer className="w-5 h-5 text-[#B45309]" />}
             title="Làm bài rất nhanh"
             hint="Thời gian làm trung bình mỗi câu thấp bất thường."
             count={fast.length}
@@ -318,7 +333,7 @@ export const AnomalyTab = () => {
           </Section>
 
           <Section
-            icon={<EyeOff className="w-5 h-5 text-[#B7791F]" />}
+            icon={<EyeOff className="w-5 h-5 text-[#B45309]" />}
             title="Rời màn hình thi nhiều"
             hint="Số lần thí sinh chuyển tab hoặc thoát khỏi màn hình thi trong lúc làm bài."
             count={leaves.length}

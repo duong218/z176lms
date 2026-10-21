@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchExamProposals, createExamProposal, updateExamProposal, submitForReview, deleteExamProposal, fetchTopics, fetchQuestionStatsByTopic } from '../../services/examiner.service';
-import { FilePlus, Pencil, Send, Trash2, Ban, AlertCircle, AlertTriangle, Clock, CheckCircle, XCircle, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { FilePlus, Pencil, Send, Trash2, Ban, AlertCircle, AlertTriangle, Clock, XCircle, ChevronDown } from 'lucide-react';
 import { useToast } from '../ToastContext';
 import { useConfirm } from '../ConfirmDialog';
 import { useScrollLock } from '../../hooks/useScrollLock';
+import { Pagination } from '../Pagination';
+import { ExamStats, ExamStatusBadge, senderText } from '../ExamInfo';
 
 // MỚI — Dropdown chọn chủ đề tự dựng, thay cho thẻ <select> gốc của trình
 // duyệt. Danh sách xổ xuống của <select> native do OS/trình duyệt tự vẽ,
@@ -127,8 +129,7 @@ const buildDeleteConfirmMessage = (exam) => {
   return base;
 };
 
-// MỚI — Cột "Người gửi" (họ tên + phòng ban) và dòng thông báo cho đề của người khác (bị khóa hoàn toàn).
-const senderText = (exam) => [exam.creator?.name, exam.creator?.departmentName].filter(Boolean).join(' — ') || '—';
+// Thông báo cho đề của người khác (bị khóa hoàn toàn).
 const NOT_OWNER_MESSAGE = 'Bạn không phải người đề xuất kỳ thi này';
 
 // MỚI — Giá trị mặc định của form khi mở modal "Tạo đề xuất mới" (tách riêng
@@ -147,15 +148,6 @@ const DEFAULT_FORM_DATA = {
   departmentScope: 'all',
   allowedDepartmentIds: [],
 };
-
-// MỚI — Hiển thị phạm vi phòng ban trên danh sách đề xuất (kỳ thi cũ không có field = tất cả).
-function formatExamScopeLabel(exam) {
-  if (exam.departmentScope !== 'selected') return 'Tất cả phòng ban';
-  const names = (exam.allowedDepartmentIds ?? [])
-    .map((d) => (typeof d === 'object' && d?.name ? d.name : null))
-    .filter(Boolean);
-  return names.length ? names.join(', ') : 'Chọn phòng ban (chưa có danh sách)';
-}
 
 // highlightExam: { examId, ts } — yêu cầu từ chuông thông báo (bấm "đã duyệt"/"bị từ chối"): nhảy tới đúng trang,
 // cuộn và tô sáng đúng đề xuất đó. onHighlightConsumed: báo App xóa yêu cầu để lần sau mở lại tab không tô sáng lại.
@@ -595,251 +587,106 @@ export const ExamProposalTab = ({ highlightExam, onHighlightConsumed }) => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'draft': return <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-medium border border-slate-200 flex items-center gap-1"><FilePlus className="w-3 h-3" /> Nháp</span>;
-      case 'pending_review': return <span className="bg-[#FFFBEB] text-[#B45309] px-2 py-1 rounded text-xs font-medium border border-[#F6AD37]/40 flex items-center gap-1"><Clock className="w-3 h-3" /> Chờ duyệt</span>;
-      case 'rejected': return <span className="bg-[#FEECEC] text-[#C53030] px-2 py-1 rounded text-xs font-medium border border-[#E53E3E]/30 flex items-center gap-1"><XCircle className="w-3 h-3" /> Bị từ chối</span>;
-      case 'approved': return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium border border-blue-200 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Đã duyệt</span>;
-      case 'published': return <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-medium border border-emerald-200 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Đã đăng</span>;
-      case 'archived': return <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium border border-gray-200">Đã lưu trữ</span>;
-      default: return <span>{status}</span>;
-    }
-  };
-
   return (
     <div className="space-y-4">
-      {/* MỚI — animate-fade-in-up: đồng bộ hiệu ứng xuất hiện khi tab vừa tải
-          xong, cùng pattern với AccountTab.jsx / AuditLogTab.jsx bên Admin. */}
-      <div className="animate-fade-in-up flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm" style={{ '--stagger-delay': '0ms' }}>
+      <div className="animate-fade-in-up flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-white p-4 sm:p-5 rounded-xl border border-[#E2E8F0] shadow-z176" style={{ '--stagger-delay': '0ms' }}>
         <div>
-          <h2 className="text-base sm:text-lg font-bold text-[#0F172A]">Danh sách đề xuất kỳ thi</h2>
-          <p className="text-sm text-slate-500">Tạo cấu trúc đề thi và trình Người duyệt đề phê duyệt</p>
+          <h2 className="text-lg font-bold text-[#0F172A]">Danh sách đề xuất kỳ thi</h2>
+          <p className="text-base text-[#334155]">Tạo cấu trúc đề thi và trình Người duyệt đề phê duyệt</p>
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-[#008BC5] hover:bg-sky-600 active:bg-sky-600 text-white rounded-lg font-medium transition-colors w-full sm:w-auto"
+          className="inline-flex items-center justify-center gap-2 px-5 min-h-[48px] w-full sm:w-auto bg-[#008BC5] hover:bg-[#0693E3] active:bg-[#006BA1] text-white rounded-[10px] text-base font-semibold transition-colors"
         >
-          <FilePlus className="w-4 h-4" /> Tạo đề xuất mới
+          <FilePlus className="w-5 h-5" aria-hidden="true" /> Tạo đề xuất mới
         </button>
       </div>
 
-      {/* Trên mobile dùng danh sách dạng thẻ (dễ đọc, không phải cuộn ngang);
-          từ md trở lên vẫn dùng bảng như cũ vì màn hình đủ rộng. */}
       {loading ? (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center text-slate-500 text-sm">
-          Đang tải...
-        </div>
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-8 text-center text-base text-[#334155]">Đang tải...</div>
       ) : exams.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 sm:p-12 text-center text-slate-500">
-          <FilePlus className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-          <p className="font-medium text-slate-600 text-base">Chưa có đề xuất nào</p>
-          <p className="text-sm mt-1">Bấm "Tạo đề xuất mới" để bắt đầu</p>
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-10 text-center text-[#334155]">
+          <FilePlus className="w-12 h-12 mx-auto mb-3 text-[#64748B]" aria-hidden="true" />
+          <p className="font-semibold text-base text-[#0F172A]">Chưa có đề xuất nào</p>
+          <p className="text-base mt-1">Bấm "Tạo đề xuất mới" để bắt đầu</p>
         </div>
       ) : (
         <>
-          {/* Mobile card list */}
-          <div className="animate-fade-in-up md:hidden space-y-3" style={{ '--stagger-delay': '80ms' }}>
-            {pagedExams.map(exam => exam.isMine === false ? (
-              <div
-                key={exam._id}
-                data-exam-id={exam._id}
-                aria-disabled="true"
-                className="bg-slate-200/80 rounded-xl border border-slate-300 p-4 space-y-2 text-slate-500 select-none"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-bold text-base leading-snug break-words line-through">{exam.title}</h3>
-                  <div className="shrink-0">{getStatusBadge(exam.status)}</div>
-                </div>
-                <p className="text-sm line-through break-words">Người gửi: {senderText(exam)}</p>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                  <Ban className="w-4 h-4 shrink-0" /> {NOT_OWNER_MESSAGE}
-                </p>
-              </div>
-            ) : (
-              <div
-                key={exam._id}
-                data-exam-id={exam._id}
-                className={`bg-white rounded-xl border shadow-sm p-4 space-y-3 transition-colors ${
-                  highlightedId === exam._id ? 'border-[#008BC5] ring-2 ring-[#008BC5]/40 bg-[#EAF6FF]' : 'border-slate-200'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-slate-800 text-base leading-snug break-words">{exam.title}</h3>
-                    <p className="text-sm text-slate-500 mt-0.5 break-words">{exam.topicId?.name}</p>
+          {/* Một danh sách thẻ duy nhất cho mọi kích thước: mobile xếp dọc, desktop (lg) đẩy nút thao tác sang cột phải. */}
+          <ul className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '80ms' }}>
+            {pagedExams.map((exam) =>
+              exam.isMine === false ? (
+                <li key={exam._id} data-exam-id={exam._id} aria-disabled="true" className="rounded-xl border border-[#CBD5E1] bg-[#F1F5F9] p-4 sm:p-5 text-[#334155] select-none">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h3 className="min-w-0 text-base font-bold break-words line-through">{exam.title}</h3>
+                    <ExamStatusBadge status={exam.status} />
                   </div>
-                  <div className="shrink-0">{getStatusBadge(exam.status)}</div>
-                </div>
+                  <p className="mt-1 text-base break-words line-through">Người gửi: {senderText(exam)}</p>
+                  <p className="mt-2 flex items-center gap-1.5 text-base font-semibold">
+                    <Ban className="w-4 h-4 shrink-0" aria-hidden="true" /> {NOT_OWNER_MESSAGE}
+                  </p>
+                </li>
+              ) : (
+                <li
+                  key={exam._id}
+                  data-exam-id={exam._id}
+                  className={`rounded-xl border p-4 sm:p-5 shadow-z176 transition-colors ${
+                    highlightedId === exam._id ? 'border-[#008BC5] ring-2 ring-[#008BC5]/40 bg-[#EAF6FF]' : 'border-[#E2E8F0] bg-white'
+                  }`}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="text-lg font-bold text-[#0F172A] leading-snug break-words">{exam.title}</h3>
+                          <p className="text-base text-[#334155] break-words">
+                            {[exam.topicId?.name, `Người gửi: ${senderText(exam)}`].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                        <ExamStatusBadge status={exam.status} />
+                      </div>
 
-                <p className="text-xs text-slate-500">Người gửi: {senderText(exam)}</p>
+                      <ExamStats exam={exam} />
 
-                <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 rounded-lg p-2.5 text-xs text-slate-600">
-                  <div>
-                    <div className="font-semibold text-slate-800">{exam.durationMinutes}p</div>
-                    <div>Thời gian</div>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-800">{exam.totalQuestions}</div>
-                    <div>Tổng câu</div>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-800">{exam.commonQuestionCount}/{exam.departmentQuestionCount}</div>
-                    <div>Chung/Riêng</div>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500">Phạm vi: {formatExamScopeLabel(exam)}</p>
+                      {exam.status === 'rejected' && exam.rejectionReason && (
+                        <div className="flex items-start gap-2 rounded-lg bg-[#FEECEC] border border-[#E53E3E]/30 p-3 text-base text-[#C53030]">
+                          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
+                          <span>
+                            <b>Lý do từ chối:</b> {exam.rejectionReason}
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-                {exam.status === 'rejected' && exam.rejectionReason && (
-                  <div className="flex items-start gap-1.5 text-[#C53030] text-xs bg-[#FEECEC] p-2.5 rounded-lg">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{exam.rejectionReason}</span>
-                  </div>
-                )}
-
-                {canDelete(exam.status) && (
-                  <div className="flex gap-2">
-                    {canEdit(exam.status) && (
-                      <>
-                        <button
-                          onClick={() => openEditModal(exam)}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] bg-slate-100 hover:bg-slate-200 active:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
-                        >
-                          <Pencil className="w-4 h-4" /> Chỉnh sửa
-                        </button>
-                        <button
-                          onClick={() => handleSubmitReview(exam._id)}
-                          disabled={submittingReviewId === exam._id}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] bg-[#FFFBEB] hover:bg-[#FDECC8] active:bg-[#FDECC8] text-[#92400E] rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          <Send className="w-4 h-4" /> {submittingReviewId === exam._id ? 'Đang gửi...' : 'Gửi duyệt'}
-                        </button>
-                      </>
+                    {canDelete(exam.status) && (
+                      <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 lg:w-44 shrink-0">
+                        {canEdit(exam.status) && (
+                          <>
+                            <button
+                              onClick={() => handleSubmitReview(exam._id)}
+                              disabled={submittingReviewId === exam._id}
+                              className="col-span-2 lg:col-span-1 inline-flex items-center justify-center gap-2 px-4 min-h-[48px] bg-[#008BC5] hover:bg-[#0693E3] active:bg-[#006BA1] text-white rounded-[10px] text-base font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Send className="w-4 h-4" aria-hidden="true" /> {submittingReviewId === exam._id ? 'Đang gửi...' : 'Gửi duyệt'}
+                            </button>
+                            <button
+                              onClick={() => openEditModal(exam)}
+                              className="inline-flex items-center justify-center gap-2 px-4 min-h-[48px] bg-white border-[1.5px] border-[#008BC5] hover:bg-[#F0F9FF] text-[#008BC5] rounded-[10px] text-base font-semibold transition-colors"
+                            >
+                              <Pencil className="w-4 h-4" aria-hidden="true" /> Chỉnh sửa
+                            </button>
+                          </>
+                        )}
+                        {renderDeleteButton(exam, `px-4 min-h-[48px] rounded-[10px] text-base ${canEdit(exam.status) ? '' : 'col-span-2 lg:col-span-1'}`)}
+                      </div>
                     )}
-                    {renderDeleteButton(exam, `px-3 py-2.5 min-h-[44px] rounded-lg ${canEdit(exam.status) ? '' : 'flex-1'}`)}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                </li>
+              ),
+            )}
+          </ul>
 
-          {/* Desktop / tablet table */}
-          <div className="animate-fade-in-up hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" style={{ '--stagger-delay': '80ms' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
-                    <th className="p-4 font-semibold">Tên kỳ thi</th>
-                    <th className="p-4 font-semibold">Người gửi</th>
-                    <th className="p-4 font-semibold">Chủ đề</th>
-                    <th className="p-4 font-semibold">Cấu trúc</th>
-                    <th className="p-4 font-semibold">Trạng thái</th>
-                    <th className="p-4 font-semibold">Ghi chú</th>
-                    <th className="p-4 font-semibold text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {pagedExams.map(exam => exam.isMine === false ? (
-                    <tr key={exam._id} data-exam-id={exam._id} aria-disabled="true" className="bg-slate-200/80 text-slate-500 select-none">
-                      <td className="p-4 font-medium line-through">{exam.title}</td>
-                      <td className="p-4 line-through">
-                        <div className="font-medium">{exam.creator?.name || '—'}</div>
-                        {exam.creator?.departmentName && <div className="text-xs">{exam.creator.departmentName}</div>}
-                      </td>
-                      <td className="p-4">—</td>
-                      <td className="p-4 text-xs">—</td>
-                      <td className="p-4">{getStatusBadge(exam.status)}</td>
-                      <td className="p-4" colSpan={2}>
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                          <Ban className="w-4 h-4 shrink-0" /> {NOT_OWNER_MESSAGE}
-                        </span>
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr
-                      key={exam._id}
-                      data-exam-id={exam._id}
-                      className={`transition-colors ${highlightedId === exam._id ? 'bg-[#EAF6FF]' : 'hover:bg-slate-50'}`}
-                    >
-                      <td className="p-4 font-medium text-slate-800">{exam.title}</td>
-                      <td className="p-4 text-slate-600">
-                        <div className="font-medium">{exam.creator?.name || '—'}</div>
-                        {exam.creator?.departmentName && <div className="text-xs text-slate-500">{exam.creator.departmentName}</div>}
-                      </td>
-                      <td className="p-4 text-slate-600">{exam.topicId?.name}</td>
-                      <td className="p-4 text-slate-600 text-xs">
-                        <div>Thời gian: {exam.durationMinutes}p</div>
-                        <div>Tổng câu: {exam.totalQuestions}</div>
-                        <div>Chung: {exam.commonQuestionCount} / Riêng: {exam.departmentQuestionCount}</div>
-                        <div>Bù câu chung: {exam.allowCommonCompensation === false ? 'Tắt' : 'Bật'}</div>
-                        <div>Phạm vi: {formatExamScopeLabel(exam)}</div>
-                      </td>
-                      <td className="p-4">{getStatusBadge(exam.status)}</td>
-                      <td className="p-4 text-slate-600">
-                        {exam.status === 'rejected' && (
-                          <div className="flex items-start gap-1 text-[#C53030] text-xs bg-[#FEECEC] p-2 rounded">
-                            <AlertCircle className="w-4 h-4 shrink-0" />
-                            <span>{exam.rejectionReason}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4 text-right">
-                        {canDelete(exam.status) && (
-                          <div className="inline-flex gap-2">
-                            {canEdit(exam.status) && (
-                              <>
-                                <button
-                                  onClick={() => openEditModal(exam)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium transition-colors"
-                                >
-                                  <Pencil className="w-4 h-4" /> Chỉnh sửa
-                                </button>
-                                <button
-                                  onClick={() => handleSubmitReview(exam._id)}
-                                  disabled={submittingReviewId === exam._id}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFFBEB] hover:bg-[#FDECC8] text-[#92400E] rounded font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                  <Send className="w-4 h-4" /> {submittingReviewId === exam._id ? 'Đang gửi...' : 'Gửi duyệt'}
-                                </button>
-                              </>
-                            )}
-                            {renderDeleteButton(exam, 'px-3 py-1.5 rounded')}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* MỚI — Điều hướng trang, chỉ hiện khi có nhiều hơn 1 trang. */}
-          {exams.length > PAGE_SIZE && (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between gap-2">
-              <p className="text-sm text-slate-500">
-                Trang {page}/{totalPages} (Tổng {exams.length} đề xuất)
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 1}
-                  className="w-11 h-11 flex items-center justify-center bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Trang trước"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page === totalPages}
-                  className="w-11 h-11 flex items-center justify-center bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Trang sau"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination page={page} pageCount={totalPages} onChange={handlePageChange} />
         </>
       )}
 
