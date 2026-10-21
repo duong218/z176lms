@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { FileText, BookOpen } from 'lucide-react';
 import { fetchResultsByExam, exportReportByExam } from '../../services/report.service';
+import { useToast } from '../ToastContext';
 
 export const ExamReportTab = () => {
+  const { showToast } = useToast();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,7 +39,7 @@ export const ExamReportTab = () => {
     try {
       await exportReportByExam();
     } catch (err) {
-      alert(err.message || 'Lỗi khi tải file báo cáo');
+      showToast(err.message || 'Lỗi khi tải file báo cáo', 'error');
     }
   };
 

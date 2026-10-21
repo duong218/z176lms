@@ -193,7 +193,7 @@ export const ResultsLookupSection = ({ onLogin }) => {
                       key={dept.departmentName}
                       className={`rounded-[10px] p-4 border ${
                         isTop
-                          ? 'bg-gradient-to-br from-[#FFF8E6] to-white border-[#F6AD37] ring-1 ring-[#F6AD37]/40 shadow-[0_4px_16px_rgba(246,173,55,0.22)]'
+                          ? 'bg-[#FFF7E6] border-[#F6AD37] shadow-z176'
                           : 'bg-white border-slate-200 shadow-z176'
                       }`}
                     >
@@ -214,7 +214,7 @@ export const ResultsLookupSection = ({ onLogin }) => {
                       <div className={`h-2 rounded-full overflow-hidden ${isTop ? 'bg-[#FDE9C0]' : 'bg-slate-100'}`}>
                         <div
                           className={`h-full rounded-full transition-all ${
-                            isTop ? 'bg-gradient-to-r from-[#FBBF4E] to-[#F59E0B]' : 'bg-[#008BC5]'
+                            isTop ? 'bg-[#F6AD37]' : 'bg-[#008BC5]'
                           }`}
                           style={{ width: `${Math.min(100, Math.max(0, dept.passRate))}%` }}
                         />

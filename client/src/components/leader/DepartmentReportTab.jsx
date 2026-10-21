@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { FileText, Building2 } from 'lucide-react';
 import { fetchResultsByDepartment, exportReport } from '../../services/report.service';
+import { useToast } from '../ToastContext';
 
 export const DepartmentReportTab = () => {
+  const { showToast } = useToast();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,7 +39,7 @@ export const DepartmentReportTab = () => {
     try {
       await exportReport();
     } catch (err) {
-      alert(err.message || 'Lỗi khi tải file báo cáo');
+      showToast(err.message || 'Lỗi khi tải file báo cáo', 'error');
     }
   };
 
