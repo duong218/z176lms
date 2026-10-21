@@ -6,19 +6,19 @@ import { Pagination } from '../Pagination';
 const PAGE_SIZE = 5;
 
 const FLAGS = {
-  suspect_key: { label: 'Nghi sai đáp án', cls: 'bg-[#FEECEC] text-[#C53030]' },
-  low_discrimination: { label: 'Phân biệt thấp', cls: 'bg-[#FFF7E6] text-[#B7791F]' },
-  too_easy: { label: 'Quá dễ', cls: 'bg-[#FFF7E6] text-[#B7791F]' },
-  too_hard: { label: 'Quá khó', cls: 'bg-[#FFF7E6] text-[#B7791F]' },
-  difficulty_mismatch: { label: 'Độ khó khai báo lệch', cls: 'bg-[#FFF7E6] text-[#B7791F]' },
+  suspect_key: { label: 'Nghi sai đáp án', cls: 'bg-[#FEECEC] text-[#C53030] border-[#E53E3E]/30' },
+  low_discrimination: { label: 'Phân biệt thấp', cls: 'bg-[#FFF7E6] text-[#B45309] border-[#F6AD37]/50' },
+  too_easy: { label: 'Quá dễ', cls: 'bg-[#FFF7E6] text-[#B45309] border-[#F6AD37]/50' },
+  too_hard: { label: 'Quá khó', cls: 'bg-[#FFF7E6] text-[#B45309] border-[#F6AD37]/50' },
+  difficulty_mismatch: { label: 'Độ khó khai báo lệch', cls: 'bg-[#FFF7E6] text-[#B45309] border-[#F6AD37]/50' },
 };
 
 const pct = (v) => (v === null || v === undefined ? '—' : `${Math.round(v * 100)}%`);
 
 const Stat = ({ label, value, warn }) => (
-  <div className="bg-white rounded-xl border border-[#E2E8F0] p-4">
-    <p className="text-sm text-[#64748B]">{label}</p>
-    <p className={`text-2xl font-bold mt-0.5 ${warn ? 'text-[#B7791F]' : 'text-[#0F172A]'}`}>{value}</p>
+  <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-z176 p-4">
+    <p className="text-sm text-[#334155]">{label}</p>
+    <p className={`text-3xl font-bold mt-0.5 ${warn ? 'text-[#B45309]' : 'text-[#0F172A]'}`}>{value}</p>
   </div>
 );
 
@@ -97,7 +97,7 @@ const TopicFilter = ({ value, topics, onChange }) => {
         aria-expanded={open}
         aria-controls="qa-topic-listbox"
         aria-label="Lọc theo chủ đề"
-        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-[#CBD5E1] bg-white text-left text-base text-[#0F172A] min-touch-target focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#008BC5]"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-[10px] border-[1.5px] border-[#E2E8F0] bg-white text-left text-base text-[#0F172A] min-touch-target focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#008BC5]"
       >
         <span className="truncate">{current.label}</span>
         <ChevronDown
@@ -111,7 +111,7 @@ const TopicFilter = ({ value, topics, onChange }) => {
           ref={menuRef}
           id="qa-topic-listbox"
           role="listbox"
-          className="absolute left-0 right-0 sm:left-auto sm:w-80 sm:max-w-[calc(100vw-2rem)] z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-lg"
+          className="absolute left-0 right-0 sm:left-auto sm:w-80 sm:max-w-[calc(100vw-2rem)] z-30 mt-1 max-h-64 overflow-y-auto rounded-[10px] border border-[#E2E8F0] bg-white py-1 shadow-z176"
         >
           {options.map((o, i) => {
             const selected = o.value === value;
@@ -123,8 +123,8 @@ const TopicFilter = ({ value, topics, onChange }) => {
                 onClick={() => choose(o.value)}
                 onMouseEnter={() => setActive(i)}
                 className={`flex items-start justify-between gap-2 px-3 py-2.5 min-h-[44px] cursor-pointer text-base break-words ${
-                  selected ? 'font-semibold text-[#1D4ED8]' : 'text-[#0F172A]'
-                } ${i === active ? 'bg-[#EFF6FF]' : ''}`}
+                  selected ? 'font-semibold text-[#008BC5]' : 'text-[#0F172A]'
+                } ${i === active ? 'bg-[#EAF6FF]' : ''}`}
               >
                 <span className="min-w-0">{o.label}</span>
                 {selected && <Check className="w-4 h-4 shrink-0 mt-1" aria-hidden="true" />}
@@ -213,14 +213,14 @@ export const QuestionAnalysisTab = () => {
 
   const { meta } = data;
   const seg = (active) =>
-    `flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-base font-semibold min-touch-target ${
-      active ? 'bg-[#008BC5] text-white' : 'bg-white text-[#334155] border border-[#CBD5E1] hover:bg-[#F1F5F9]'
+    `flex-1 sm:flex-none px-4 py-2.5 rounded-[10px] text-base font-semibold min-touch-target ${
+      active ? 'bg-[#008BC5] text-white' : 'bg-white text-[#334155] border-[1.5px] border-[#CBD5E1] hover:bg-[#F6F8FA]'
     }`;
 
   return (
     <div className="space-y-5">
       <div className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '0ms' }}>
-        <h2 className="text-lg font-bold text-[#0F172A]">Phân tích chất lượng câu hỏi</h2>
+        <h2 className="text-xl font-bold text-[#0F172A]">Phân tích chất lượng câu hỏi</h2>
 
         <div className="grid grid-cols-1 min-[480px]:grid-cols-3 gap-3">
           <Stat label="Lượt thi đã phân tích" value={meta.attemptsAnalyzed} />
@@ -260,7 +260,7 @@ export const QuestionAnalysisTab = () => {
 
       <div ref={listRef} className="scroll-mt-24 space-y-3">
         {shown.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#E2E8F0] p-12 text-center text-[#64748B]">
+          <div className="bg-white rounded-xl border border-[#E2E8F0] p-12 text-center text-[#334155]">
             <BarChart3 className="w-12 h-12 mb-3 mx-auto" />
             <p className="text-base font-medium text-[#334155]">
               {items.length === 0 ? 'Chưa có dữ liệu phân tích' : 'Không có câu hỏi phù hợp bộ lọc'}
@@ -269,7 +269,7 @@ export const QuestionAnalysisTab = () => {
           </div>
         ) : (
           <>
-            <p className="text-sm text-[#64748B]">
+            <p className="text-sm text-[#334155]">
               Hiển thị {(cur - 1) * PAGE_SIZE + 1}–{Math.min(cur * PAGE_SIZE, shown.length)} / {shown.length} câu
             </p>
             {rows.map((q) => {
@@ -279,7 +279,7 @@ export const QuestionAnalysisTab = () => {
                 .filter((o) => !o.isCorrect)
                 .reduce((best, o) => (!best || o.selectedRate > best.selectedRate ? o : best), null);
               return (
-                <article key={q.questionId} className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden">
+                <article key={q.questionId} className="bg-white rounded-xl border border-[#E2E8F0] shadow-z176 overflow-hidden">
                   <button
                     onClick={() => canOpen && setOpenId(isOpen ? null : q.questionId)}
                     className={`w-full text-left p-4 flex items-start gap-3 min-touch-target ${canOpen ? 'hover:bg-[#F6F8FA]' : 'cursor-default'}`}
@@ -287,67 +287,74 @@ export const QuestionAnalysisTab = () => {
                   >
                     <div className="flex-1 min-w-0 space-y-2.5">
                       <p className="text-base font-medium text-[#0F172A] line-clamp-3">{q.content || '(Câu hỏi đã bị xóa)'}</p>
-                      <p className="text-sm text-[#64748B]">
+                      <p className="text-sm text-[#334155]">
                         {q.topicName} · {q.responses} lượt trả lời
                       </p>
                       {canOpen ? (
-                        <div className="flex flex-wrap gap-x-5 gap-y-1 text-base text-[#334155]">
-                          <span>
-                            Tỷ lệ đúng <b className="text-[#0F172A]">{pct(q.correctRate)}</b>
-                          </span>
-                          <span>
-                            Độ phân biệt <b className="text-[#0F172A]">{q.discrimination.toFixed(2)}</b>
-                          </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+                          <div>
+                            <p className="text-base text-[#334155]">
+                              Tỷ lệ đúng <b className="text-[#0F172A]">{pct(q.correctRate)}</b>
+                            </p>
+                            <div className="mt-1 h-2 rounded-full bg-[#E2E8F0] overflow-hidden">
+                              <div className="h-full rounded-full bg-[#008BC5]" style={{ width: `${Math.round((q.correctRate ?? 0) * 100)}%` }} />
+                            </div>
+                          </div>
+                          <p className="text-base text-[#334155]">
+                            Độ phân biệt{' '}
+                            <b className={q.discrimination < 0 ? 'text-[#C53030]' : 'text-[#0F172A]'}>{q.discrimination.toFixed(2)}</b>
+                            {q.discrimination < 0 && <span className="block text-sm text-[#C53030]">Âm: người giỏi làm sai nhiều hơn</span>}
+                          </p>
                         </div>
                       ) : (
-                        <p className="text-sm text-[#64748B]">Chưa đủ dữ liệu để phân tích</p>
+                        <p className="text-sm text-[#334155]">Chưa đủ dữ liệu để phân tích</p>
                       )}
                       {(q.flags.length > 0 || (canOpen && q.reliability === 'low')) && (
                         <div className="flex flex-wrap gap-2">
                           {q.flags.map((f) => (
                             <span
                               key={f}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-semibold ${FLAGS[f].cls}`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-sm font-semibold ${FLAGS[f].cls}`}
                             >
-                              {f === 'suspect_key' && <AlertTriangle className="w-3.5 h-3.5" />}
+                              {f === 'suspect_key' && <AlertTriangle className="w-4 h-4" aria-hidden="true" />}
                               {FLAGS[f].label}
                             </span>
                           ))}
                           {canOpen && q.reliability === 'low' && (
-                            <span className="inline-flex px-2.5 py-1 rounded-full text-sm font-medium bg-[#F1F5F9] text-[#475569]">
+                            <span className="inline-flex px-2.5 py-1 rounded-lg border border-[#E2E8F0] text-sm font-medium bg-[#F6F8FA] text-[#334155]">
                               Mẫu nhỏ, chỉ tham khảo
                             </span>
                           )}
                         </div>
                       )}
                     </div>
-                    {canOpen &&
-                      (isOpen ? (
-                        <ChevronUp className="w-5 h-5 text-[#64748B] shrink-0 mt-1" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-[#64748B] shrink-0 mt-1" />
-                      ))}
+                    {canOpen && (
+                      <span className="shrink-0 mt-1 flex items-center gap-1 text-sm font-semibold text-[#008BC5]">
+                        <span className="hidden sm:inline">{isOpen ? 'Thu gọn' : 'Xem đáp án'}</span>
+                        {isOpen ? <ChevronUp className="w-5 h-5" aria-hidden="true" /> : <ChevronDown className="w-5 h-5" aria-hidden="true" />}
+                      </span>
+                    )}
                   </button>
 
                   {isOpen && canOpen && (
                     <div className="border-t border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-4">
-                      {q.options.length === 0 && <p className="text-base text-[#64748B]">Không có dữ liệu đáp án.</p>}
+                      {q.options.length === 0 && <p className="text-base text-[#334155]">Không có dữ liệu đáp án.</p>}
                       {q.options.map((o, i) => {
                         const distractor = !o.isCorrect && strongest?.answerId === o.answerId && o.selectedRate > 0;
                         return (
                           <div key={o.answerId} className="space-y-1.5">
                             <p className="text-base text-[#0F172A]">
                               <span className="font-semibold">{String.fromCharCode(65 + i)}.</span> {o.content}
-                              {o.isCorrect && <span className="ml-2 text-sm font-semibold text-[#15803D]">Đáp án đúng</span>}
-                              {distractor && <span className="ml-2 text-sm font-semibold text-[#B7791F]">Nhiễu mạnh nhất</span>}
+                              {o.isCorrect && <span className="ml-2 text-sm font-semibold text-[#166534]">Đáp án đúng</span>}
+                              {distractor && <span className="ml-2 text-sm font-semibold text-[#B45309]">Nhiễu mạnh nhất</span>}
                             </p>
-                            <div className="h-2 rounded-full bg-[#E2E8F0] overflow-hidden">
+                            <div className="h-3 rounded-full bg-[#E2E8F0] overflow-hidden">
                               <div
                                 className={`h-full rounded-full ${o.isCorrect ? 'bg-[#22C55E]' : distractor ? 'bg-[#F6AD37]' : 'bg-[#94A3B8]'}`}
                                 style={{ width: `${Math.round((o.selectedRate ?? 0) * 100)}%` }}
                               />
                             </div>
-                            <p className="text-sm text-[#64748B]">
+                            <p className="text-sm text-[#334155]">
                               Chọn {pct(o.selectedRate)} · Nhóm cao {pct(o.upperRate)} · Nhóm thấp {pct(o.lowerRate)}
                             </p>
                           </div>
