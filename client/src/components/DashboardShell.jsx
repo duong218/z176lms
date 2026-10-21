@@ -58,11 +58,11 @@ export const DashboardShell = ({ tabs, activeTab, onTabChange, idPrefix, label, 
                     collapsed ? 'justify-center px-0' : 'px-3'
                   } ${
                     isActive
-                      ? 'bg-[#EAF6FF] text-[#00709F] font-semibold'
+                      ? 'bg-[#006BA1] text-white font-semibold'
                       : 'text-[#334155] font-medium hover:bg-slate-100 hover:text-[#0F172A]'
                   }`}
                 >
-                  {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-[#008BC5]" aria-hidden="true" />}
+                  {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" aria-hidden="true" />}
                   <span className="shrink-0">{tab.icon}</span>
                   <span className={collapsed ? 'sr-only' : 'min-w-0 leading-snug'}>{tab.label}</span>
                 </button>
@@ -102,8 +102,8 @@ export const DashboardShell = ({ tabs, activeTab, onTabChange, idPrefix, label, 
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => onTabChange(tab.id)}
-                className={`relative flex items-center gap-2 px-5 py-4 min-h-[48px] font-semibold text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#008BC5] ${
-                  isActive ? 'text-[#00709F]' : 'text-slate-500 hover:text-slate-800'
+                className={`relative flex items-center gap-2 px-5 py-4 min-h-[48px] font-semibold text-base whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#008BC5] ${
+                  isActive ? 'text-[#00709F] bg-[#EAF6FF]' : 'text-[#334155] hover:text-[#0F172A]'
                 }`}
               >
                 {tab.icon}
@@ -119,7 +119,7 @@ export const DashboardShell = ({ tabs, activeTab, onTabChange, idPrefix, label, 
 
         {/* Điện thoại: thanh tab đã ẩn nên hiện tên mục đang xem */}
         {activeLabel && (
-          <div className="md:hidden px-4 py-3 border-b border-slate-200 bg-white text-sm font-semibold text-[#334155]">
+          <div className="md:hidden px-4 py-3 border-b border-slate-200 bg-white text-base font-semibold text-[#0F172A]">
             {activeLabel}
           </div>
         )}

@@ -56,7 +56,7 @@ export const LeaderDashboard = ({ currentUser, activeTab, onTabChange }) => {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-[#0F172A] leading-tight">Dashboard Người duyệt đề</h1>
-          <p className="text-sm md:text-base text-[#64748B] mt-1">Báo cáo và thống kê kết quả thi chuyên môn Z176.</p>
+          <p className="text-sm md:text-base text-[#334155] mt-1">Báo cáo và thống kê kết quả thi chuyên môn Z176.</p>
         </div>
       </div>
 

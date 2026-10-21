@@ -51,7 +51,7 @@ export const ExaminerDashboard = ({ currentUser, activeTab, onTabChange, highlig
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8 mt-14 sm:mt-16 min-h-screen">
       <div className="mb-5 sm:mb-8 px-1">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#0F172A] mb-1.5 sm:mb-2">QUẢN LÝ NGÂN HÀNG ĐỀ THI</h1>
-        <p className="text-sm sm:text-base text-slate-500">Soạn thảo, quản lý câu hỏi thi chuyên môn và bộ phận phòng ban.</p>
+        <p className="text-sm sm:text-base text-[#334155]">Soạn thảo, quản lý câu hỏi thi chuyên môn và bộ phận phòng ban.</p>
       </div>
 
       <DashboardShell

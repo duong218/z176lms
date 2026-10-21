@@ -54,7 +54,6 @@ import {
 import { CompetencyCard } from '../../components/candidate/CompetencyCard';
 import { AiAssistantChat } from '../../components/candidate/AiAssistantChat';
 import { fetchAiStatus } from '../../services/ai-assistant.service';
-import { useColorLook } from '../../hooks/useColorLook';
 
 const formatDateTime = (value) => {
   if (!value) return '—';
@@ -107,35 +106,33 @@ const HISTORY_PAGE_SIZE = 10;
 // Bỏ dấu tiếng Việt để gõ "ky thi" vẫn tìm ra "Kỳ thi"
 const norm = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
 
-// Màu theo 5 màu chức năng của design-system. Chuỗi class viết đủ để Tailwind quét được.
+// Màu theo 5 màu chức năng của design-system (dùng sắc đậm để chữ trắng đủ tương phản). Class viết đủ để Tailwind quét được.
 const TONES = {
-  blue: { tile: 'bg-[#EAF6FF]', edge: 'border-l-[#008BC5]', fg: 'text-[#008BC5]' },
-  green: { tile: 'bg-[#F0FDF4]', edge: 'border-l-[#22C55E]', fg: 'text-[#166534]' },
-  yellow: { tile: 'bg-[#FFF7E6]', edge: 'border-l-[#F6AD37]', fg: 'text-[#B45309]' },
-  gray: { tile: 'bg-[#F6F8FA]', edge: 'border-l-[#64748B]', fg: 'text-[#334155]' },
+  blue: { bg: 'bg-[#006BA1]', fg: 'text-white', chip: 'bg-white/20' },
+  green: { bg: 'bg-[#166534]', fg: 'text-white', chip: 'bg-white/20' },
+  yellow: { bg: 'bg-[#F6AD37]', fg: 'text-[#0F172A]', chip: 'bg-white/50' },
+  gray: { bg: 'bg-[#334155]', fg: 'text-white', chip: 'bg-white/20' },
 };
 
-// Huy hiệu trạng thái kỳ thi: luôn có icon + chữ, không chỉ dựa vào màu.
+// Dải trạng thái kỳ thi: luôn có icon + chữ, không chỉ dựa vào màu.
 const PHASE_BADGE = {
-  open: { label: 'Đang mở', icon: CheckCircle2, cls: 'bg-[#F0FDF4] text-[#166534]' },
-  upcoming: { label: 'Sắp diễn ra', icon: Clock, cls: 'bg-[#FFF7E6] text-[#B45309]' },
-  ended: { label: 'Đã kết thúc', icon: XCircle, cls: 'bg-[#F6F8FA] text-[#334155]' },
+  open: { label: 'Đang mở', icon: CheckCircle2, band: 'bg-[#166534]' },
+  upcoming: { label: 'Sắp diễn ra', icon: Clock, band: 'bg-[#B45309]' },
+  ended: { label: 'Đã kết thúc', icon: XCircle, band: 'bg-[#334155]' },
 };
 
-const StatTile = ({ icon: Icon, label, value, hint, tone, colorful }) => {
+const StatTile = ({ icon: Icon, label, value, hint, tone }) => {
   const t = TONES[tone];
   return (
-    <div
-      className={`rounded-xl border p-4 shadow-z176 flex flex-col gap-1.5 min-w-0 ${
-        colorful ? `${t.tile} border-[#E2E8F0] border-l-4 ${t.edge}` : 'bg-white border-[#E2E8F0]'
-      }`}
-    >
-      <div className="flex items-center gap-2 text-sm font-semibold text-[#334155]">
-        <Icon className={`w-5 h-5 shrink-0 ${colorful ? t.fg : 'text-[#008BC5]'}`} aria-hidden="true" />
+    <div className={`rounded-xl shadow-z176 p-4 flex flex-col gap-2 min-w-0 ${t.bg} ${t.fg}`}>
+      <div className="flex items-center gap-2.5 text-sm font-semibold">
+        <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${t.chip}`}>
+          <Icon className="w-5 h-5" aria-hidden="true" />
+        </span>
         {label}
       </div>
-      <div className="text-2xl font-bold text-[#0F172A] leading-tight break-words">{value}</div>
-      {hint && <div className="text-sm text-[#334155]">{hint}</div>}
+      <div className="text-3xl font-bold leading-tight break-words">{value}</div>
+      {hint && <div className="text-sm font-medium">{hint}</div>}
     </div>
   );
 };
@@ -151,7 +148,6 @@ const SIDEBAR_ITEMS = [
 
 export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) => {
   const [activeSection, setActiveSection] = useState('dashboard');
-  const [colorful, setColorful] = useColorLook();
   const [aiEnabled, setAiEnabled] = useState(false); // admin bật/tắt Trợ lý AI -> ẩn/hiện mục menu
 
   useEffect(() => {
@@ -416,28 +412,6 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
             Thông tin cá nhân, thi trực tuyến và lịch sử kết quả thi của bạn.
           </p>
         </div>
-        {activeSection === 'dashboard' && !loading && !error && employee && (
-          <div role="group" aria-label="Kiểu giao diện" className="shrink-0">
-            <div className="text-sm font-semibold text-[#334155] mb-1">Kiểu giao diện</div>
-            <div className="inline-flex rounded-[10px] border border-[#E2E8F0] bg-white p-1 gap-1">
-              {[
-                { v: false, label: 'Đơn giản' },
-                { v: true, label: 'Nhiều màu' },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  onClick={() => setColorful(o.v)}
-                  aria-pressed={colorful === o.v}
-                  className={`min-h-[44px] px-4 rounded-lg text-base font-semibold transition-colors ${
-                    colorful === o.v ? 'bg-[#008BC5] text-white' : 'text-[#334155] hover:bg-[#F6F8FA]'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {loading ? (
@@ -476,7 +450,7 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                     aria-current={isActive ? 'page' : undefined}
                     className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-2 md:px-4 py-3 min-h-[76px] md:min-h-[56px] rounded-lg text-sm md:text-base font-semibold text-center md:text-left transition-colors min-touch-target ${
                       isActive
-                        ? 'bg-[#008BC5] text-white border border-[#008BC5] md:bg-[#008BC5]/10 md:text-[#008BC5] md:border-[#008BC5]/30'
+                        ? 'bg-[#006BA1] text-white border border-[#006BA1]'
                         : 'text-[#0F172A] md:text-slate-500 hover:text-[#0F172A] hover:bg-slate-100 border border-slate-200 md:border-transparent'
                     }`}
                   >
@@ -495,48 +469,45 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
               <>
                 {/* Hồ sơ */}
                 <div
-                  className="animate-fade-in-up bg-white rounded-xl shadow-z176 border border-[#E2E8F0] p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                  className="animate-fade-in-up rounded-xl shadow-z176 bg-[#006BA1] text-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4"
                   style={{ '--stagger-delay': '0ms' }}
                 >
                   <div
-                    className="w-14 h-14 rounded-xl bg-[#008BC5] text-white text-2xl font-bold flex items-center justify-center shrink-0"
+                    className="w-16 h-16 rounded-xl bg-white text-[#006BA1] text-3xl font-bold flex items-center justify-center shrink-0"
                     aria-hidden="true"
                   >
                     {(lastName[0] || '?').toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] leading-tight break-words">
+                    <h2 className="text-2xl sm:text-[28px] font-bold leading-tight break-words">
                       Xin chào, {lastName || employee.fullname}
                     </h2>
-                    <dl className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-base">
+                    <dl className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2">
                       <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-[#334155]">
+                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
                           <UserCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                           Họ và tên
                         </dt>
-                        <dd className="font-semibold text-[#0F172A] break-words">{employee.fullname}</dd>
+                        <dd className="text-base font-semibold break-words">{employee.fullname}</dd>
                       </div>
                       <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-[#334155]">
+                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
                           <BadgeCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
                           Mã nhân viên
                         </dt>
-                        <dd className="font-semibold text-[#0F172A] font-mono">{employee.employeeCode || '—'}</dd>
+                        <dd className="text-base font-semibold font-mono">{employee.employeeCode || '—'}</dd>
                       </div>
                       <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-[#334155]">
+                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
                           <Building2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                           Phòng ban
                         </dt>
-                        <dd className="font-semibold text-[#0F172A] break-words">{employee.departmentName || '—'}</dd>
+                        <dd className="text-base font-semibold break-words">{employee.departmentName || '—'}</dd>
                         {employee.extraDepartments?.length > 0 && (
                           <dd className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span className="text-sm text-[#334155]">Kiêm nhiệm:</span>
+                            <span className="text-sm text-white/90">Kiêm nhiệm:</span>
                             {employee.extraDepartments.map((d) => (
-                              <span
-                                key={d._id}
-                                className="px-2.5 py-0.5 rounded-lg bg-[#EAF6FF] text-[#008BC5] text-sm font-semibold"
-                              >
+                              <span key={d._id} className="px-2.5 py-0.5 rounded-lg bg-white text-[#006BA1] text-sm font-semibold">
                                 {d.name}
                               </span>
                             ))}
@@ -550,94 +521,87 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                 {/* Việc cần làm: kỳ thi hiện tại */}
                 {activeExam ? (
                   <div
-                    className={`animate-fade-in-up rounded-xl shadow-z176 border p-5 sm:p-6 ${
-                      colorful ? 'bg-[#EAF6FF] border-[#008BC5]/30' : 'bg-white border-[#E2E8F0]'
-                    }`}
+                    className="animate-fade-in-up rounded-xl shadow-z176 border border-[#E2E8F0] bg-white overflow-hidden"
                     style={{ '--stagger-delay': '30ms' }}
                   >
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-[#334155] mb-2">Kỳ thi hiện tại</div>
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-semibold mb-3 ${PHASE_BADGE[examPhase]?.cls ?? PHASE_BADGE.ended.cls}`}
-                        >
-                          {(() => {
-                            const B = PHASE_BADGE[examPhase] ?? PHASE_BADGE.ended;
-                            return (
-                              <>
-                                <B.icon className="w-4 h-4" aria-hidden="true" />
-                                {B.label}
-                              </>
-                            );
-                          })()}
-                        </span>
-                        <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] leading-snug break-words">
-                          {activeExam.title}
-                        </h2>
-                        <p className="mt-2 text-base text-[#334155] flex items-start gap-2">
-                          <Calendar className="w-5 h-5 shrink-0 mt-0.5 text-[#008BC5]" aria-hidden="true" />
-                          <span>
-                            Từ ngày <strong className="text-[#0F172A]">{formatDateOnly(activeExam.startDate)}</strong>{' '}
-                            đến hết <strong className="text-[#0F172A]">{formatDateOnly(activeExam.endDate)}</strong>
-                          </span>
-                        </p>
-                      </div>
-
-                      {examPhase !== 'ended' && examPhase !== 'none' && (
-                        <div className="lg:shrink-0">
-                          <div className="text-sm font-semibold text-[#334155] mb-2 flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-[#008BC5]" aria-hidden="true" />
-                            {examPhase === 'open' ? 'Thời gian còn lại' : COUNTDOWN_LABEL[examPhase]}
-                          </div>
-                          <div className="grid grid-cols-4 gap-2 lg:w-[19rem]">
-                            {[
-                              { value: examTimeLeft.days, label: 'Ngày' },
-                              { value: examTimeLeft.hours, label: 'Giờ' },
-                              { value: examTimeLeft.minutes, label: 'Phút' },
-                              { value: examTimeLeft.seconds, label: 'Giây' },
-                            ].map((unit) => (
-                              <div key={unit.label} className="flex flex-col text-center">
-                                <div className="bg-[#008BC5] text-white font-bold text-2xl leading-none py-3 rounded-t-lg tabular-nums">
-                                  {unit.value < 10 ? `0${unit.value}` : unit.value}
-                                </div>
-                                <div className="bg-white border border-t-0 border-[#E2E8F0] text-[#334155] text-sm font-semibold py-1 rounded-b-lg">
-                                  {unit.label}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                    {(() => {
+                      const B = PHASE_BADGE[examPhase] ?? PHASE_BADGE.ended;
+                      return (
+                        <div className={`${B.band} text-white px-5 sm:px-6 py-2.5 flex items-center gap-2 text-base font-bold`}>
+                          <B.icon className="w-5 h-5" aria-hidden="true" />
+                          Kỳ thi hiện tại · {B.label}
                         </div>
-                      )}
-                    </div>
-
-                    <div className="mt-5 pt-5 border-t border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="text-base text-[#0F172A] space-y-1.5">
-                        <div className="font-semibold">
-                          {examStatusLoading
-                            ? 'Đang kiểm tra lượt thi…'
-                            : examStatus
-                              ? `Bạn còn ${attemptsLeft} lượt thi cho kỳ thi này.`
-                              : 'Xem trạng thái lượt thi ở mục "Thi trực tuyến".'}
+                      );
+                    })()}
+                    <div className="p-5 sm:p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                        <div className="min-w-0">
+                          <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] leading-snug break-words">
+                            {activeExam.title}
+                          </h2>
+                          <p className="mt-2 text-base text-[#334155] flex items-start gap-2">
+                            <Calendar className="w-5 h-5 shrink-0 mt-0.5 text-[#008BC5]" aria-hidden="true" />
+                            <span>
+                              Từ ngày <strong className="text-[#0F172A]">{formatDateOnly(activeExam.startDate)}</strong>{' '}
+                              đến hết <strong className="text-[#0F172A]">{formatDateOnly(activeExam.endDate)}</strong>
+                            </span>
+                          </p>
                         </div>
-                        {examRole?.name && (
-                          <div className="flex items-center gap-1.5 flex-wrap text-[#334155]">
-                            <Building2 className="w-4 h-4 text-[#008BC5] shrink-0" aria-hidden="true" />
-                            <span>Thi với tư cách:</span>
-                            <strong className="px-2 py-0.5 rounded-lg bg-white border border-[#E2E8F0] text-[#0F172A]">
-                              {examRole.name}
-                            </strong>
-                            {examRole.locked && <Lock className="w-4 h-4 text-[#334155]" aria-label="Đã khóa" />}
+
+                        {examPhase !== 'ended' && examPhase !== 'none' && (
+                          <div className="lg:shrink-0">
+                            <div className="text-sm font-semibold text-[#334155] mb-2 flex items-center gap-1.5">
+                              <Clock className="w-4 h-4 text-[#008BC5]" aria-hidden="true" />
+                              {examPhase === 'open' ? 'Thời gian còn lại' : COUNTDOWN_LABEL[examPhase]}
+                            </div>
+                            <div className="grid grid-cols-4 gap-2 lg:w-[19rem]">
+                              {[
+                                { value: examTimeLeft.days, label: 'Ngày' },
+                                { value: examTimeLeft.hours, label: 'Giờ' },
+                                { value: examTimeLeft.minutes, label: 'Phút' },
+                                { value: examTimeLeft.seconds, label: 'Giây' },
+                              ].map((unit) => (
+                                <div key={unit.label} className="flex flex-col text-center">
+                                  <div className="bg-[#006BA1] text-white font-bold text-2xl leading-none py-3 rounded-t-lg tabular-nums">
+                                    {unit.value < 10 ? `0${unit.value}` : unit.value}
+                                  </div>
+                                  <div className="bg-[#EAF6FF] text-[#006BA1] text-sm font-semibold py-1 rounded-b-lg">
+                                    {unit.label}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
-                        {examRoleHint && <div className="text-sm text-[#334155]">{examRoleHint}</div>}
                       </div>
-                      <button
-                        onClick={() => setActiveSection('exam')}
-                        className="w-full sm:w-auto min-h-[48px] px-6 bg-[#008BC5] hover:bg-[#0693E3] active:bg-[#006BA1] text-white font-semibold text-base rounded-[10px] transition-colors shrink-0 flex items-center justify-center gap-2"
-                      >
-                        <ShieldCheck className="w-5 h-5" aria-hidden="true" />
-                        Vào thi ngay
-                      </button>
+
+                      <div className="mt-5 pt-5 border-t border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="text-base text-[#0F172A] space-y-1.5">
+                          <div className="font-semibold">
+                            {examStatusLoading
+                              ? 'Đang kiểm tra lượt thi…'
+                              : examStatus
+                                ? `Bạn còn ${attemptsLeft} lượt thi cho kỳ thi này.`
+                                : 'Xem trạng thái lượt thi ở mục "Thi trực tuyến".'}
+                          </div>
+                          {examRole?.name && (
+                            <div className="flex items-center gap-1.5 flex-wrap text-[#334155]">
+                              <Building2 className="w-4 h-4 text-[#008BC5] shrink-0" aria-hidden="true" />
+                              <span>Thi với tư cách:</span>
+                              <strong className="px-2 py-0.5 rounded-lg bg-[#EAF6FF] text-[#006BA1]">{examRole.name}</strong>
+                              {examRole.locked && <Lock className="w-4 h-4 text-[#334155]" aria-label="Đã khóa" />}
+                            </div>
+                          )}
+                          {examRoleHint && <div className="text-sm text-[#334155]">{examRoleHint}</div>}
+                        </div>
+                        <button
+                          onClick={() => setActiveSection('exam')}
+                          className="w-full sm:w-auto min-h-[52px] px-8 bg-[#008BC5] hover:bg-[#0693E3] active:bg-[#006BA1] text-white font-bold text-lg rounded-[10px] transition-colors shrink-0 flex items-center justify-center gap-2"
+                        >
+                          <ShieldCheck className="w-6 h-6" aria-hidden="true" />
+                          Vào thi ngay
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -655,14 +619,14 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                   className="animate-fade-in-up grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
                   style={{ '--stagger-delay': '60ms' }}
                 >
-                  <StatTile icon={History} label="Số lần đã thi" value={totalAttempts} tone="blue" colorful={colorful} />
-                  <StatTile icon={CheckCircle2} label="Số lần đạt" value={passedCount} tone="green" colorful={colorful} />
+                  <StatTile icon={History} label="Số lần đã thi" value={totalAttempts} tone="blue" />
+                  <StatTile icon={CheckCircle2} label="Số lần đạt" value={passedCount} tone="green" />
                   <StatTile
                     icon={Trophy}
                     label="Điểm cao nhất"
                     value={bestResult ? `${bestResult.score} điểm` : '—'}
                     tone="yellow"
-                    colorful={colorful}
+                   
                   />
                   <StatTile
                     icon={ListChecks}
@@ -670,7 +634,7 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                     value={activeExam && examStatus ? `${attemptsLeft}/${maxAttempts}` : '—'}
                     hint={activeExam ? 'Kỳ thi hiện tại' : 'Chưa có kỳ thi'}
                     tone="gray"
-                    colorful={colorful}
+                   
                   />
                 </div>
 

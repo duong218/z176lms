@@ -115,7 +115,7 @@ function TopicSelect({ id, value, topics, onChange }) {
                 aria-selected={selected}
                 onClick={() => choose(o._id)}
                 className={`flex items-start justify-between gap-2 px-3 py-2.5 min-h-[44px] cursor-pointer text-sm break-words ${
-                  selected ? 'bg-[#EFF6FF] font-semibold text-[#1D4ED8]' : 'text-[#0F172A] hover:bg-slate-50'
+                  selected ? 'bg-[#EAF6FF] font-semibold text-[#00709F]' : 'text-[#0F172A] hover:bg-slate-50'
                 }`}
               >
                 <span className="min-w-0">{o.name}</span>
@@ -151,16 +151,16 @@ const OverviewSkeleton = () => (
 );
 
 // ---------- Thẻ số liệu ----------
-const StatCard = ({ label, value, caption, icon: Icon, accent, iconBg }) => (
-  <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-z176 p-4 sm:p-5 flex flex-col">
+const StatCard = ({ label, value, caption, icon: Icon, bg, fg }) => (
+  <div className="rounded-xl shadow-z176 p-4 sm:p-5 flex flex-col" style={{ backgroundColor: bg, color: fg }}>
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: iconBg }}>
-        <Icon className="w-5 h-5" style={{ color: accent }} aria-hidden="true" />
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+        <Icon className="w-5 h-5" aria-hidden="true" />
       </div>
-      <p className="text-sm font-medium text-[#334155] leading-tight">{label}</p>
+      <p className="text-sm font-semibold leading-tight">{label}</p>
     </div>
-    <p className="text-3xl font-bold text-[#0F172A] mt-4 tabular-nums">{value}</p>
-    {caption && <p className="text-sm text-[#64748B] mt-1">{caption}</p>}
+    <p className="text-3xl font-bold mt-4 tabular-nums">{value}</p>
+    {caption && <p className="text-sm font-medium mt-1">{caption}</p>}
   </div>
 );
 
@@ -171,7 +171,7 @@ const DepartmentRow = ({ item, rank }) => {
   return (
     <li className="flex items-start gap-3 py-3.5 border-t border-[#E2E8F0] first:border-t-0 first:pt-0">
       <span
-        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold tabular-nums shrink-0"
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold tabular-nums shrink-0"
         style={{ backgroundColor: tier.soft, color: tier.text }}
         aria-label={`Hạng ${rank}`}
       >
@@ -348,30 +348,30 @@ export const OverviewTab = () => {
   const avgPerCandidate = totalCandidates > 0 ? (totalSubmissions / totalCandidates).toFixed(1) : null;
 
   const summaryCards = [
-    { label: 'Tổng số thí sinh', value: totalCandidates, caption: '', icon: Users, iconBg: '#EAF6FF', accent: '#008BC5' },
+    { label: 'Tổng số thí sinh', value: totalCandidates, caption: '', icon: Users, bg: '#006BA1', fg: '#FFFFFF' },
     {
       label: 'Tổng lượt nộp bài',
       value: totalSubmissions,
       caption: avgPerCandidate ? `Trung bình ${avgPerCandidate} lượt / thí sinh` : '',
       icon: FileCheck2,
-      iconBg: '#F6F8FA',
-      accent: '#334155',
+      bg: '#334155',
+      fg: '#FFFFFF',
     },
     {
       label: 'Số lượt Đạt',
       value: passedCount,
       caption: `${percentOf(passedCount, totalSubmissions)}% tổng lượt nộp`,
       icon: CheckCircle2,
-      iconBg: '#F0FDF4',
-      accent: PASS_COLOR,
+      bg: '#166534',
+      fg: '#FFFFFF',
     },
     {
       label: 'Số lượt Không đạt',
       value: failedCount,
       caption: `${percentOf(failedCount, totalSubmissions)}% tổng lượt nộp`,
       icon: XCircle,
-      iconBg: '#FEECEC',
-      accent: FAIL_COLOR,
+      bg: '#C53030',
+      fg: '#FFFFFF',
     },
   ];
 
@@ -502,7 +502,7 @@ export const OverviewTab = () => {
           <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-z176 p-4 sm:p-5 flex flex-col justify-center gap-6">
             <div>
               <p className="text-sm font-medium text-[#334155]">Tỷ lệ Đạt</p>
-              <p className="text-3xl font-bold text-[#22C55E] mt-1 tabular-nums">{stats.passRate}%</p>
+              <p className="text-3xl font-bold text-[#15803D] mt-1 tabular-nums">{stats.passRate}%</p>
               <div
                 className="mt-3 h-2 rounded-full bg-[#E2E8F0] overflow-hidden"
                 role="progressbar"

@@ -29,19 +29,19 @@ import {
 
 // Nhãn + màu trạng thái, khớp enum EXAM_STATUS ở server/src/models/constants.js.
 const STATUS_META = {
-  draft: { label: 'Bản nháp', color: '#64748B', soft: 'bg-slate-100 text-slate-600' },
-  pending_review: { label: 'Chờ duyệt', color: '#F6AD37', soft: 'bg-amber-100 text-amber-700' },
-  approved: { label: 'Đã duyệt', color: '#22C55E', soft: 'bg-green-100 text-green-700' },
-  rejected: { label: 'Bị từ chối', color: '#E53E3E', soft: 'bg-red-100 text-red-700' },
-  published: { label: 'Đã phát hành', color: '#008BC5', soft: 'bg-sky-100 text-sky-700' },
-  archived: { label: 'Đã lưu trữ', color: '#94A3B8', soft: 'bg-slate-100 text-slate-500' },
+  draft: { solid: '#475569', fg: '#FFFFFF', label: 'Bản nháp', color: '#64748B', tint: '#F6F8FA', soft: 'bg-[#F6F8FA] text-[#334155]' },
+  pending_review: { solid: '#F6AD37', fg: '#0F172A', label: 'Chờ duyệt', color: '#F6AD37', tint: '#FFF7E6', soft: 'bg-[#FFF7E6] text-[#B45309]' },
+  approved: { solid: '#166534', fg: '#FFFFFF', label: 'Đã duyệt', color: '#22C55E', tint: '#F0FDF4', soft: 'bg-[#F0FDF4] text-[#166534]' },
+  rejected: { label: 'Bị từ chối', color: '#E53E3E', tint: '#FEECEC', soft: 'bg-[#FEECEC] text-[#C53030]' },
+  published: { solid: '#006BA1', fg: '#FFFFFF', label: 'Đã phát hành', color: '#008BC5', tint: '#EAF6FF', soft: 'bg-[#EAF6FF] text-[#00709F]' },
+  archived: { label: 'Đã lưu trữ', color: '#94A3B8', tint: '#F6F8FA', soft: 'bg-[#F6F8FA] text-[#334155]' },
 };
 
 // Các bước của vòng đời đề xuất — đây là một chuỗi thật nên vẽ theo thứ tự trái -> phải.
 const PIPELINE = ['draft', 'pending_review', 'approved', 'published'];
 
 function statusMeta(status) {
-  return STATUS_META[status] || { label: status || 'Không rõ', color: '#94A3B8', soft: 'bg-slate-100 text-slate-500' };
+  return STATUS_META[status] || { label: status || 'Không rõ', color: '#94A3B8', tint: '#F6F8FA', soft: 'bg-[#F6F8FA] text-[#334155]' };
 }
 
 function formatDateTime(value) {
@@ -57,10 +57,10 @@ function topicIdOf(proposal) {
 
 // Khung thẻ dùng chung: tiêu đề + mô tả ngắn + nội dung
 const Panel = ({ title, hint, children, className = '' }) => (
-  <section className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 ${className}`}>
+  <section className={`bg-white rounded-xl border border-slate-200 shadow-z176 p-4 sm:p-5 ${className}`}>
     <div className="mb-3">
       <h3 className="text-base font-bold text-[#0F172A]">{title}</h3>
-      {hint && <p className="text-sm text-slate-500 mt-0.5">{hint}</p>}
+      {hint && <p className="text-sm text-[#334155] mt-0.5">{hint}</p>}
     </div>
     {children}
   </section>
@@ -68,15 +68,15 @@ const Panel = ({ title, hint, children, className = '' }) => (
 
 // Một dòng việc cần xử lý; nếu có onNavigate thì cả dòng bấm được
 const ActionRow = ({ icon: Icon, tone, title, detail, cta, onClick }) => {
-  const toneClass = tone === 'danger' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600';
+  const toneClass = tone === 'danger' ? 'bg-[#FEECEC] text-[#C53030]' : 'bg-[#FFF7E6] text-[#B45309]';
   const content = (
     <>
       <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${toneClass}`}>
         <Icon className="w-[18px] h-[18px]" />
       </span>
       <span className="flex-1 min-w-0 text-left">
-        <span className="block text-sm font-semibold text-[#0F172A] break-words">{title}</span>
-        {detail && <span className="block text-sm text-slate-500 mt-0.5 line-clamp-2 break-words">{detail}</span>}
+        <span className="block text-base font-semibold text-[#0F172A] break-words">{title}</span>
+        {detail && <span className="block text-sm text-[#334155] mt-0.5 line-clamp-2 break-words">{detail}</span>}
       </span>
       {onClick && (
         <span className="hidden sm:flex items-center gap-1 text-sm font-semibold text-[#008BC5] shrink-0">
@@ -261,7 +261,7 @@ export const OverviewTab = ({ onNavigate }) => {
     <div className="animate-fade-in-up space-y-4 sm:space-y-5" style={{ '--stagger-delay': '0ms' }}>
       {/* 1. Việc cần xử lý */}
       <section
-        className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 border-l-4 ${
+        className={`bg-white rounded-xl border border-slate-200 shadow-z176 p-4 sm:p-5 border-l-4 ${
           actions.length > 0 ? 'border-l-[#F6AD37]' : 'border-l-[#22C55E]'
         }`}
       >
@@ -290,7 +290,7 @@ export const OverviewTab = ({ onNavigate }) => {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-[#334155]">
             Không có đề bị từ chối hay bản nháp nào đang chờ gửi duyệt. Bạn có thể bổ sung câu hỏi hoặc tạo đề xuất kỳ thi mới.
           </p>
         )}
@@ -300,13 +300,13 @@ export const OverviewTab = ({ onNavigate }) => {
         {/* 2. Ngân hàng câu hỏi */}
         <Panel title="Ngân hàng câu hỏi" hint="Chỉ câu thuộc ngân hàng Thi chính thức mới được rút vào đề.">
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-[#008BC5]/5 border border-[#008BC5]/20 p-3">
-              <p className="text-xs font-medium text-slate-500">Thi chính thức</p>
-              <p className="text-2xl font-bold text-[#008BC5] mt-0.5">{data.examQuestions}</p>
+            <div className="rounded-lg bg-[#006BA1] text-white p-3">
+              <p className="text-sm font-semibold">Thi chính thức</p>
+              <p className="text-3xl font-bold mt-0.5">{data.examQuestions}</p>
             </div>
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-              <p className="text-xs font-medium text-slate-500">Ôn tập</p>
-              <p className="text-2xl font-bold text-slate-600 mt-0.5">{data.practiceQuestions}</p>
+            <div className="rounded-lg bg-[#334155] text-white p-3">
+              <p className="text-sm font-semibold">Ôn tập</p>
+              <p className="text-3xl font-bold mt-0.5">{data.practiceQuestions}</p>
             </div>
           </div>
           {totalQuestions > 0 && (
@@ -318,7 +318,7 @@ export const OverviewTab = ({ onNavigate }) => {
               >
                 <div className="h-full bg-[#008BC5]" style={{ width: `${examShare}%` }} />
               </div>
-              <p className="text-xs text-slate-500 mt-1.5">{examShare}% tổng số {totalQuestions} câu thuộc ngân hàng thi chính thức</p>
+              <p className="text-sm text-[#334155] mt-1.5">{examShare}% tổng số {totalQuestions} câu thuộc ngân hàng thi chính thức</p>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100">
@@ -328,7 +328,7 @@ export const OverviewTab = ({ onNavigate }) => {
               disabled={!canGo}
               className="text-left rounded-lg px-1 py-1 hover:bg-slate-50 disabled:hover:bg-transparent transition-colors"
             >
-              <p className="text-xs font-medium text-slate-500">Chủ đề</p>
+              <p className="text-sm font-medium text-[#334155]">Chủ đề</p>
               <p className="text-lg font-bold text-[#0F172A]">{data.topics.length}</p>
             </button>
             <button
@@ -337,7 +337,7 @@ export const OverviewTab = ({ onNavigate }) => {
               disabled={!canGo}
               className="text-left rounded-lg px-1 py-1 hover:bg-slate-50 disabled:hover:bg-transparent transition-colors"
             >
-              <p className="text-xs font-medium text-slate-500">Bộ phận / Phòng ban</p>
+              <p className="text-sm font-medium text-[#334155]">Bộ phận / Phòng ban</p>
               <p className="text-lg font-bold text-[#0F172A]">{data.totalDepartments}</p>
             </button>
           </div>
@@ -353,10 +353,13 @@ export const OverviewTab = ({ onNavigate }) => {
               const meta = statusMeta(status);
               const n = counts[status] || 0;
               return (
-                <li key={status} className="relative rounded-lg border border-slate-200 p-3">
-                  <span className="absolute left-0 top-3 bottom-3 w-1 rounded-r" style={{ background: meta.color, opacity: n === 0 ? 0.3 : 1 }} />
-                  <p className="text-xs font-medium text-slate-500 pl-2">{meta.label}</p>
-                  <p className={`text-2xl font-bold pl-2 mt-0.5 ${n === 0 ? 'text-slate-300' : 'text-[#0F172A]'}`}>{n}</p>
+                <li
+                  key={status}
+                  className="relative rounded-lg p-3"
+                  style={{ backgroundColor: meta.solid, color: meta.fg }}
+                >
+                  <p className="text-sm font-semibold">{meta.label}</p>
+                  <p className={`text-3xl font-bold mt-0.5 ${n === 0 ? 'opacity-70' : ''}`}>{n}</p>
                   {index < PIPELINE.length - 1 && (
                     <ChevronRight className="hidden sm:block absolute -right-[11px] top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 bg-white z-10" />
                   )}
@@ -369,7 +372,7 @@ export const OverviewTab = ({ onNavigate }) => {
               const meta = statusMeta(status);
               const n = counts[status] || 0;
               return (
-                <span key={status} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${n > 0 ? meta.soft : 'bg-slate-50 text-slate-400'}`}>
+                <span key={status} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-semibold ${n > 0 ? meta.soft : 'bg-slate-50 text-[#64748B]'}`}>
                   {meta.label}
                   <span className="font-bold">{n}</span>
                 </span>
@@ -384,7 +387,7 @@ export const OverviewTab = ({ onNavigate }) => {
           hint="Số câu riêng thuộc ngân hàng thi chính thức của chủ đề. Khi kỳ thi tắt bù câu chung, bộ phận thiếu câu riêng sẽ bị khóa."
         >
           {data.topics.length === 0 ? (
-            <p className="text-sm text-slate-400 py-6 text-center">Chưa có chủ đề nào.</p>
+            <p className="text-sm text-[#64748B] py-6 text-center">Chưa có chủ đề nào.</p>
           ) : (
             <>
               <label className="block">
@@ -392,7 +395,7 @@ export const OverviewTab = ({ onNavigate }) => {
                 <Select
                   value={selectedTopicId}
                   onChange={(e) => setSelectedTopicId(e.target.value)}
-                  className="w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
+                  className="w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-base text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
                 >
                   {data.topics.map((t) => (
                     <option key={t._id} value={t._id}>
@@ -450,7 +453,7 @@ export const OverviewTab = ({ onNavigate }) => {
           {recent.length === 0 ? (
             <div className="py-8 text-center">
               <ClipboardCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">Bạn chưa tạo đề xuất kỳ thi nào.</p>
+              <p className="text-sm text-[#334155]">Bạn chưa tạo đề xuất kỳ thi nào.</p>
               {canGo && (
                 <button
                   type="button"
@@ -469,7 +472,7 @@ export const OverviewTab = ({ onNavigate }) => {
                   <>
                     <span className="flex-1 min-w-0 text-left">
                       <span className="block text-sm font-semibold text-[#0F172A] truncate">{p.title}</span>
-                      <span className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                      <span className="flex items-center gap-1.5 text-sm text-[#334155] mt-0.5">
                         <Clock className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">
                           {p.topicId?.name ? `${p.topicId.name}, ` : ''}
@@ -477,7 +480,7 @@ export const OverviewTab = ({ onNavigate }) => {
                         </span>
                       </span>
                     </span>
-                    <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${meta.soft}`}>{meta.label}</span>
+                    <span className={`shrink-0 px-2.5 py-1 rounded-lg text-sm font-semibold ${meta.soft}`}>{meta.label}</span>
                   </>
                 );
                 return (
