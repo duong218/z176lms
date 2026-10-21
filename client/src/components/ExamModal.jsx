@@ -776,9 +776,103 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
 
   const exam = examData?.exam;
 
+  const renderFontControls = () => (
+                  <div className="flex items-center gap-2" role="group" aria-label="Cỡ chữ câu hỏi">
+                    <span className="text-sm font-semibold text-[#334155]">Cỡ chữ</span>
+                    <button
+                      type="button"
+                      onClick={() => changeFontLevel(-1)}
+                      disabled={fontLevel === 0}
+                      aria-label="Giảm cỡ chữ"
+                      className="h-11 min-w-[44px] px-2 rounded-[10px] border-[1.5px] border-[#CBD5E1] bg-white font-bold text-base text-[#0F172A] hover:bg-[#F0F9FF] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                    >
+                      A−
+                    </button>
+                    <span className="min-w-[56px] text-center text-sm font-semibold text-[#0F172A]" aria-live="polite">
+                      {fontSizes.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => changeFontLevel(1)}
+                      disabled={fontLevel === FONT_LEVELS.length - 1}
+                      aria-label="Tăng cỡ chữ"
+                      className="h-11 min-w-[44px] px-2 rounded-[10px] border-[1.5px] border-[#CBD5E1] bg-white font-bold text-xl text-[#0F172A] hover:bg-[#F0F9FF] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                    >
+                      A+
+                    </button>
+                  </div>
+  );
+
+  const renderLegend = () => (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#334155]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-md bg-[#008BC5] shrink-0" aria-hidden="true" /> Đang xem
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="w-5 h-5 rounded-md bg-[#EAF6FF] border-[1.5px] border-[#008BC5] shrink-0"
+                          aria-hidden="true"
+                        />{' '}
+                        Đã làm
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="w-5 h-5 rounded-md bg-white border-[1.5px] border-[#CBD5E1] shrink-0"
+                          aria-hidden="true"
+                        />{' '}
+                        Chưa làm
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Flag className="w-4 h-4 text-[#B45309]" fill="currentColor" aria-hidden="true" /> Xem lại
+                        {flaggedCount > 0 && ` (${flaggedCount})`}
+                      </span>
+                    </div>
+  );
+
+  const renderGrid = (gridClass) => (
+                    <div className={gridClass}>
+                      {questions.map((q, idx) => {
+                        const isAnswered = (selectedAnswers[q.id] || []).length > 0;
+                        const isCurrent = idx === currentQuestionIndex;
+                        const isFlagged = Boolean(flagged[q.id]);
+                        return (
+                          <button
+                            key={q.id}
+                            onClick={() => handleJumpToQuestion(idx)}
+                            className={`relative aspect-square min-h-[48px] rounded-lg text-base font-bold flex items-center justify-center border-[1.5px] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
+                              isCurrent
+                                ? 'bg-[#008BC5] border-[#008BC5] text-white'
+                                : isAnswered
+                                  ? 'bg-[#EAF6FF] border-[#008BC5] text-[#006BA1]'
+                                  : 'bg-white border-[#CBD5E1] text-[#334155] hover:bg-[#F6F8FA]'
+                            }`}
+                            aria-label={`Câu ${idx + 1}, ${isAnswered ? 'đã làm' : 'chưa làm'}${isFlagged ? ', đã đánh dấu xem lại' : ''}${isCurrent ? ', đang xem' : ''}`}
+                            aria-current={isCurrent ? 'true' : undefined}
+                          >
+                            {idx + 1}
+                            {isAnswered && !isCurrent && (
+                              <Check
+                                className="absolute top-0.5 right-0.5 w-3.5 h-3.5 text-[#008BC5]"
+                                strokeWidth={3}
+                                aria-hidden="true"
+                              />
+                            )}
+                            {isFlagged && (
+                              <Flag
+                                className="absolute top-0.5 left-0.5 w-3.5 h-3.5 text-[#F6AD37]"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 bg-[#0F172A]/60 sm:flex sm:items-center sm:justify-center sm:p-4" data-lenis-prevent>
-      <div className="relative bg-white w-full h-[100dvh] sm:h-[92dvh] sm:max-h-[900px] sm:max-w-3xl sm:rounded-xl sm:border sm:border-[#E2E8F0] sm:shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative bg-white w-full h-[100dvh] sm:h-[92dvh] sm:max-h-[900px] sm:max-w-3xl lg:h-[94dvh] lg:max-h-[960px] lg:max-w-[1180px] xl:max-w-[1320px] sm:rounded-xl sm:border sm:border-[#E2E8F0] sm:shadow-2xl overflow-hidden flex flex-col">
         {/* Cảnh báo rời màn hình thi: che toàn bộ, chỉ còn 1 việc để làm là quay lại. */}
         {showLeaveWarning && step === 'testing' && (
           <div
@@ -809,7 +903,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
 
         {/* Thanh thương hiệu: chỉ hiện ngoài lúc làm bài để dành chỗ cho câu hỏi. */}
         {step !== 'testing' && (
-          <header className="shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white border-b border-[#E2E8F0]">
+          <header className="shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white border-b border-[#E2E8F0]">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 rounded-[10px] bg-[#008BC5] text-white flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-6 h-6" aria-hidden="true" />
@@ -883,7 +977,8 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
         {step === 'confirm' && (
           <>
             <div className="flex-1 overflow-y-auto bg-[#F6F8FA]" data-lenis-prevent>
-              <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-5 space-y-4">
+              <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-5 space-y-4 lg:max-w-6xl lg:px-8 lg:py-8 lg:grid lg:grid-cols-12 lg:gap-x-8 lg:gap-y-0 lg:space-y-0 lg:items-start">
+                <div className={`space-y-4 ${currentUser ? 'lg:col-span-5' : 'lg:col-span-12 lg:max-w-xl lg:mx-auto lg:w-full'}`}>
                 {/* Chưa đăng nhập */}
                 {!currentUser && (
                   <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-z176 text-center space-y-3">
@@ -900,7 +995,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                     {/* Tên kỳ thi + 3 con số cần biết */}
                     <div>
                       <p className="text-sm font-semibold text-[#006BA1]">Kỳ thi hiện hành</p>
-                      <h3 className="text-xl sm:text-2xl font-bold text-[#0F172A] leading-snug mt-0.5">{exam.title}</h3>
+                      <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0F172A] leading-snug mt-0.5">{exam.title}</h3>
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
@@ -911,10 +1006,10 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                       ].map(({ icon: Icon, value, label }) => (
                         <div
                           key={label}
-                          className="bg-white border border-[#E2E8F0] rounded-xl py-3 px-2 text-center shadow-z176"
+                          className="bg-white border border-[#E2E8F0] rounded-xl py-3 px-2 lg:py-5 text-center shadow-z176"
                         >
-                          <Icon className="w-6 h-6 mx-auto text-[#006BA1]" aria-hidden="true" />
-                          <div className="text-2xl font-extrabold text-[#0F172A] mt-1 leading-none">{value}</div>
+                          <Icon className="w-6 h-6 lg:w-7 lg:h-7 mx-auto text-[#006BA1]" aria-hidden="true" />
+                          <div className="text-2xl lg:text-4xl font-extrabold text-[#0F172A] mt-1 lg:mt-2 leading-none">{value}</div>
                           <div className="text-sm text-[#334155] mt-1">{label}</div>
                         </div>
                       ))}
@@ -938,11 +1033,17 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                   <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 sm:p-5 shadow-z176 space-y-3">
                     <h4 className="text-lg font-bold text-[#0F172A]">Thông tin thí sinh</h4>
                     {employee ? (
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base">
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-base lg:text-lg lg:gap-y-3">
                         <dt className="text-[#334155]">Họ và tên</dt>
                         <dd className="font-bold text-[#0F172A]">{employee.fullname}</dd>
                         <dt className="text-[#334155]">Mã nhân viên</dt>
                         <dd className="font-bold text-[#006BA1] font-mono">{employee.employeeCode || '-'}</dd>
+                        {exam?.code && (
+                          <>
+                            <dt className="hidden lg:block text-[#334155]">Mã đề</dt>
+                            <dd className="hidden lg:block font-bold text-[#0F172A] font-mono">{exam.code}</dd>
+                          </>
+                        )}
                         {!examData?.role && (
                           <>
                             <dt className="text-[#334155]">Xưởng / Phòng</dt>
@@ -961,6 +1062,10 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                   </div>
                 )}
 
+                </div>
+
+                {currentUser && (
+                <div className="space-y-4 lg:col-span-7">
                 {/* Thi với tư cách phòng ban nào (logic giữ nguyên, chỉ đổi giao diện) */}
                 {currentUser &&
                   employee &&
@@ -1154,12 +1259,14 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                     </ul>
                   </div>
                 )}
+                </div>
+                )}
               </div>
             </div>
 
             {/* Thanh hành động cố định ở đáy */}
-            <div className="shrink-0 bg-white border-t border-[#E2E8F0] px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <div className="mx-auto max-w-2xl space-y-3">
+            <div className="shrink-0 bg-white border-t border-[#E2E8F0] px-4 sm:px-6 lg:px-8 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="mx-auto max-w-2xl lg:max-w-6xl space-y-3">
                 {submitError && (
                   <div
                     className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg text-base text-[#0F172A] flex items-start gap-2"
@@ -1171,7 +1278,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                 )}
 
                 {!currentUser ? (
-                  <button onClick={onOpenLogin} className={`${BTN_PRIMARY} w-full text-lg`}>
+                  <button onClick={onOpenLogin} className={`${BTN_PRIMARY} w-full text-lg lg:flex lg:w-[420px] lg:ml-auto`}>
                     Đăng nhập để vào thi
                   </button>
                 ) : !examData?.canTake ? (
@@ -1186,7 +1293,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                       !employee ||
                       (examData?.role && (!examData.role.departmentId || examData.role.hasEligibleRole === false))
                     }
-                    className={`${BTN_PRIMARY} w-full text-lg`}
+                    className={`${BTN_PRIMARY} w-full text-lg lg:flex lg:w-[420px] lg:ml-auto`}
                   >
                     {starting ? (
                       <Loader2 className="w-6 h-6 animate-spin" aria-hidden="true" />
@@ -1211,11 +1318,11 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
         {step === 'testing' && currentQ && (
           <div className="relative flex flex-col flex-1 min-h-0 bg-[#F6F8FA]">
             {/* Header cố định: câu hiện tại + đồng hồ + tiến độ */}
-            <div className="shrink-0 bg-white border-b border-[#E2E8F0] px-4 sm:px-6 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] space-y-3">
+            <div className="shrink-0 bg-white border-b border-[#E2E8F0] px-4 sm:px-6 lg:px-8 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <button
                   onClick={() => setShowQuestionGrid(true)}
-                  className="inline-flex items-center gap-2 min-h-[48px] px-3 -ml-3 rounded-[10px] text-lg font-bold text-[#0F172A] hover:bg-[#F6F8FA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
+                  className="inline-flex lg:hidden items-center gap-2 min-h-[48px] px-3 -ml-3 rounded-[10px] text-lg font-bold text-[#0F172A] hover:bg-[#F6F8FA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
                   aria-label={`Câu ${currentQuestionIndex + 1} trên ${questions.length}. Mở danh sách câu hỏi`}
                 >
                   <List className="w-5 h-5 text-[#006BA1]" aria-hidden="true" />
@@ -1223,6 +1330,9 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                     Câu {currentQuestionIndex + 1}/{questions.length}
                   </span>
                 </button>
+                <span className="hidden lg:inline-flex items-center text-2xl font-bold text-[#0F172A]">
+                  Câu {currentQuestionIndex + 1}/{questions.length}
+                </span>
 
                 <div
                   role="timer"
@@ -1265,17 +1375,19 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
               )}
             </div>
 
+            <div className="flex flex-col flex-1 min-h-0 lg:flex-row">
+            <div className="flex flex-col flex-1 min-h-0 min-w-0">
             {/* Nội dung câu hỏi — chặn copy + không cho bôi đen (mức răn đe, không chặn được chụp màn hình). */}
             <div
-              className="flex-1 min-h-0 overflow-y-auto select-none"
+              className="flex-1 min-h-0 overflow-y-auto select-none lg:px-6"
               data-lenis-prevent
               onCopy={handleBlockCopy}
               style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
             >
-              <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-4 space-y-4">
+              <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-4 space-y-4 lg:max-w-none lg:px-0 lg:py-6 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
                 {/* Thông tin kỳ thi + chỉnh cỡ chữ */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-sm text-[#334155] space-y-0.5 min-w-0">
+                <div className="flex items-center justify-between gap-3 flex-wrap lg:hidden">
+                  <div className="text-sm text-[#334155] space-y-0.5 min-w-0 lg:hidden">
                     {examData?.exam?.code && (
                       <div>
                         Mã đề: <strong className="font-mono text-[#0F172A]">{examData.exam.code}</strong>
@@ -1291,34 +1403,11 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2" role="group" aria-label="Cỡ chữ câu hỏi">
-                    <span className="text-sm font-semibold text-[#334155]">Cỡ chữ</span>
-                    <button
-                      type="button"
-                      onClick={() => changeFontLevel(-1)}
-                      disabled={fontLevel === 0}
-                      aria-label="Giảm cỡ chữ"
-                      className="h-11 min-w-[44px] px-2 rounded-[10px] border-[1.5px] border-[#CBD5E1] bg-white font-bold text-base text-[#0F172A] hover:bg-[#F0F9FF] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
-                    >
-                      A−
-                    </button>
-                    <span className="min-w-[56px] text-center text-sm font-semibold text-[#0F172A]" aria-live="polite">
-                      {fontSizes.label}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => changeFontLevel(1)}
-                      disabled={fontLevel === FONT_LEVELS.length - 1}
-                      aria-label="Tăng cỡ chữ"
-                      className="h-11 min-w-[44px] px-2 rounded-[10px] border-[1.5px] border-[#CBD5E1] bg-white font-bold text-xl text-[#0F172A] hover:bg-[#F0F9FF] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30"
-                    >
-                      A+
-                    </button>
-                  </div>
+                  {renderFontControls()}
                 </div>
 
                 {/* Thẻ câu hỏi */}
-                <section className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-z176 space-y-4">
+                <section className="bg-white border border-[#E2E8F0] rounded-xl p-5 lg:p-7 shadow-z176 space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="inline-flex items-center h-8 px-3 rounded-lg bg-[#008BC5] text-white font-bold text-base">
                       Câu {currentQuestionIndex + 1}
@@ -1350,7 +1439,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                         loading="lazy"
                         onError={() => setImageLoadFailed(true)}
                         onDragStart={(e) => e.preventDefault()}
-                        className="max-h-[38dvh] sm:max-h-80 w-auto object-contain"
+                        className="max-h-[38dvh] sm:max-h-80 lg:max-h-[34dvh] w-auto object-contain"
                       />
                     </div>
                   )}
@@ -1362,6 +1451,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                   )}
                 </section>
 
+                <div className="space-y-4">
                 {/* Đáp án: 1 cột, cả hàng bấm được, có chữ cái A/B/C/D */}
                 <div
                   className="space-y-3"
@@ -1378,7 +1468,7 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                         role={isMultiple ? 'checkbox' : 'radio'}
                         aria-checked={isSelected}
                         onClick={() => handleSelectOption(currentQ, opt.id)}
-                        className={`w-full min-h-[56px] px-4 py-3.5 rounded-xl text-left flex items-start gap-3 border-2 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
+                        className={`w-full min-h-[56px] px-4 py-3.5 lg:px-5 lg:py-4 rounded-xl text-left flex items-start gap-3 border-2 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
                           isSelected
                             ? 'border-[#008BC5] bg-[#EAF6FF]'
                             : 'border-[#E2E8F0] bg-white hover:border-[#0693E3] hover:bg-[#F0F9FF] active:bg-[#F0F9FF]'
@@ -1419,12 +1509,13 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                   <Flag className="w-5 h-5" fill={flagged[currentQ.id] ? 'currentColor' : 'none'} aria-hidden="true" />
                   <span>{flagged[currentQ.id] ? 'Đã đánh dấu xem lại (bấm để bỏ)' : 'Đánh dấu để xem lại sau'}</span>
                 </button>
+                </div>
               </div>
             </div>
 
             {/* Thanh đáy: đúng 2 nút, to, cách đều. Nộp bài nằm trong danh sách câu hỏi và ở câu cuối. */}
-            <div className="shrink-0 bg-white border-t border-[#E2E8F0] px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <div className="mx-auto max-w-2xl space-y-3">
+            <div className="shrink-0 bg-white border-t border-[#E2E8F0] px-4 sm:px-6 lg:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="mx-auto max-w-2xl lg:max-w-none space-y-3">
                 {submitError && (
                   <div
                     className="p-3 bg-[#FEECEC] border border-[#E53E3E]/30 rounded-lg text-base text-[#0F172A] flex items-start gap-2"
@@ -1461,11 +1552,71 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                 </div>
               </div>
             </div>
+            </div>
+
+            {/* Sidebar chỉ hiện ở desktop (lg+): thông tin thí sinh, tiến độ, danh sách câu hỏi, nút nộp bài */}
+            <aside
+              className="hidden lg:flex w-[340px] xl:w-[380px] shrink-0 flex-col min-h-0 bg-white border-l border-[#E2E8F0]"
+              aria-label="Thông tin và danh sách câu hỏi"
+            >
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6" data-lenis-prevent>
+                {employee && (
+                  <div className="rounded-xl border border-[#E2E8F0] bg-[#F6F8FA] p-4 space-y-1.5">
+                    <p className="text-sm font-semibold text-[#006BA1]">Thí sinh</p>
+                    <p className="text-lg font-bold text-[#0F172A] leading-snug">{employee.fullname}</p>
+                    <p className="text-base text-[#334155]">
+                      Mã nhân viên: <strong className="font-mono text-[#0F172A]">{employee.employeeCode || '-'}</strong>
+                    </p>
+                    {examData?.role?.name && (
+                      <p className="flex items-center gap-1.5 text-base text-[#334155]">
+                        <Building2 className="w-4 h-4 shrink-0 text-[#006BA1]" aria-hidden="true" />
+                        <span className="min-w-0">
+                          Thi với tư cách: <strong className="text-[#0F172A]">{examData.role.name}</strong>
+                        </span>
+                      </p>
+                    )}
+                    {examData?.exam?.code && (
+                      <p className="text-base text-[#334155]">
+                        Mã đề: <strong className="font-mono text-[#0F172A]">{examData.exam.code}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { value: answeredCount, label: 'Đã làm', color: 'text-[#006BA1]' },
+                    { value: unansweredIndexes.length, label: 'Chưa làm', color: 'text-[#C53030]' },
+                    { value: flaggedCount, label: 'Xem lại', color: 'text-[#B45309]' },
+                  ].map(({ value, label, color }) => (
+                    <div key={label} className="rounded-xl border border-[#E2E8F0] bg-white py-3 text-center">
+                      <div className={`text-3xl font-extrabold leading-none ${color}`}>{value}</div>
+                      <div className="text-sm text-[#334155] mt-1.5">{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-lg font-bold text-[#0F172A]">Danh sách câu hỏi</h4>
+                  {renderLegend()}
+                  {renderGrid('grid grid-cols-5 xl:grid-cols-6 gap-2.5')}
+                </div>
+              </div>
+
+              <div className="shrink-0 border-t border-[#E2E8F0] p-6 space-y-4">
+                <div className="flex justify-center">{renderFontControls()}</div>
+                <button onClick={handleRequestFinishExam} className={`${BTN_SUCCESS} w-full`}>
+                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                  <span>Nộp bài</span>
+                </button>
+              </div>
+            </aside>
+            </div>
 
             {/* Danh sách câu hỏi: bottom sheet trượt từ đáy (không chiếm chỗ của câu hỏi) */}
             {showQuestionGrid && (
               <div
-                className="absolute inset-0 z-[55] flex items-end justify-center"
+                className="absolute inset-0 z-[55] flex items-end justify-center lg:hidden"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="exam-nav-title"
@@ -1501,68 +1652,9 @@ export const ExamModal = ({ isOpen, onClose, currentUser, onOpenLogin }) => {
                   </div>
 
                   <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4" data-lenis-prevent>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#334155]">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-md bg-[#008BC5] shrink-0" aria-hidden="true" /> Đang xem
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span
-                          className="w-5 h-5 rounded-md bg-[#EAF6FF] border-[1.5px] border-[#008BC5] shrink-0"
-                          aria-hidden="true"
-                        />{' '}
-                        Đã làm
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span
-                          className="w-5 h-5 rounded-md bg-white border-[1.5px] border-[#CBD5E1] shrink-0"
-                          aria-hidden="true"
-                        />{' '}
-                        Chưa làm
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Flag className="w-4 h-4 text-[#B45309]" fill="currentColor" aria-hidden="true" /> Xem lại
-                        {flaggedCount > 0 && ` (${flaggedCount})`}
-                      </span>
-                    </div>
+                    {renderLegend()}
 
-                    <div className="grid grid-cols-5 min-[400px]:grid-cols-6 sm:grid-cols-8 gap-2.5">
-                      {questions.map((q, idx) => {
-                        const isAnswered = (selectedAnswers[q.id] || []).length > 0;
-                        const isCurrent = idx === currentQuestionIndex;
-                        const isFlagged = Boolean(flagged[q.id]);
-                        return (
-                          <button
-                            key={q.id}
-                            onClick={() => handleJumpToQuestion(idx)}
-                            className={`relative aspect-square min-h-[48px] rounded-lg text-base font-bold flex items-center justify-center border-[1.5px] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#008BC5]/30 ${
-                              isCurrent
-                                ? 'bg-[#008BC5] border-[#008BC5] text-white'
-                                : isAnswered
-                                  ? 'bg-[#EAF6FF] border-[#008BC5] text-[#006BA1]'
-                                  : 'bg-white border-[#CBD5E1] text-[#334155] hover:bg-[#F6F8FA]'
-                            }`}
-                            aria-label={`Câu ${idx + 1}, ${isAnswered ? 'đã làm' : 'chưa làm'}${isFlagged ? ', đã đánh dấu xem lại' : ''}${isCurrent ? ', đang xem' : ''}`}
-                            aria-current={isCurrent ? 'true' : undefined}
-                          >
-                            {idx + 1}
-                            {isAnswered && !isCurrent && (
-                              <Check
-                                className="absolute top-0.5 right-0.5 w-3.5 h-3.5 text-[#008BC5]"
-                                strokeWidth={3}
-                                aria-hidden="true"
-                              />
-                            )}
-                            {isFlagged && (
-                              <Flag
-                                className="absolute top-0.5 left-0.5 w-3.5 h-3.5 text-[#F6AD37]"
-                                fill="currentColor"
-                                aria-hidden="true"
-                              />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {renderGrid('grid grid-cols-5 min-[400px]:grid-cols-6 sm:grid-cols-8 gap-2.5')}
                   </div>
 
                   <div className="shrink-0 grid grid-cols-2 gap-3 px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[#E2E8F0]">
