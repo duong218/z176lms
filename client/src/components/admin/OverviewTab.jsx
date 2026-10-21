@@ -24,24 +24,25 @@ import { fetchOverviewStats, triggerBackup } from '../../services/admin.service'
 // Chỉ dùng lại fetchOverviewStats / triggerBackup đã có, không thêm API mới. Bỏ recharts vì thẻ vai trò đã nói đủ.
 
 const ROLE_META = {
-  admin: { label: 'Quản trị viên', icon: Shield, color: 'purple' },
+  admin: { label: 'Quản trị viên', icon: Shield, color: 'gray' },
   leader: { label: 'Người duyệt đề', icon: FileCheck, color: 'blue' },
   examiner: { label: 'Người ra đề', icon: ClipboardList, color: 'amber' },
   candidate: { label: 'Người dự thi', icon: GraduationCap, color: 'green' },
 };
 
+// 5 màu chức năng, sắc đậm để chữ/icon trắng đủ tương phản.
 const COLOR_CLASSES = {
-  purple: 'bg-purple-100 text-purple-600',
-  blue: 'bg-[#008BC5]/10 text-[#008BC5]',
-  amber: 'bg-amber-100 text-amber-600',
-  green: 'bg-[#22C55E]/10 text-[#22C55E]',
+  gray: 'bg-[#334155] text-white',
+  blue: 'bg-[#006BA1] text-white',
+  amber: 'bg-[#F6AD37] text-[#0F172A]',
+  green: 'bg-[#166534] text-white',
 };
 
 const BAR_CLASSES = {
-  purple: 'bg-purple-500',
-  blue: 'bg-[#008BC5]',
-  amber: 'bg-amber-500',
-  green: 'bg-[#22C55E]',
+  gray: 'bg-[#334155]',
+  blue: 'bg-[#006BA1]',
+  amber: 'bg-[#F6AD37]',
+  green: 'bg-[#166534]',
 };
 
 function formatTime(date) {
@@ -51,10 +52,10 @@ function formatTime(date) {
 
 // Khung thẻ dùng chung: tiêu đề + mô tả ngắn + nội dung
 const Panel = ({ title, hint, children, className = '' }) => (
-  <section className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 ${className}`}>
+  <section className={`bg-white rounded-xl border border-slate-200 shadow-z176 p-4 sm:p-5 ${className}`}>
     <div className="mb-3">
       <h3 className="text-base font-bold text-[#0F172A]">{title}</h3>
-      {hint && <p className="text-sm text-slate-500 mt-0.5">{hint}</p>}
+      {hint && <p className="text-sm text-[#334155] mt-0.5">{hint}</p>}
     </div>
     {children}
   </section>
@@ -62,15 +63,15 @@ const Panel = ({ title, hint, children, className = '' }) => (
 
 // Một dòng việc cần xử lý; nếu có onClick thì cả dòng bấm được
 const ActionRow = ({ icon: Icon, tone, title, detail, cta, onClick }) => {
-  const toneClass = tone === 'danger' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600';
+  const toneClass = tone === 'danger' ? 'bg-[#FEECEC] text-[#C53030]' : 'bg-[#FFF7E6] text-[#B45309]';
   const content = (
     <>
       <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${toneClass}`}>
         <Icon className="w-[18px] h-[18px]" aria-hidden="true" />
       </span>
       <span className="flex-1 min-w-0 text-left">
-        <span className="block text-sm font-semibold text-[#0F172A] break-words">{title}</span>
-        {detail && <span className="block text-sm text-slate-500 mt-0.5 line-clamp-2 break-words">{detail}</span>}
+        <span className="block text-base font-semibold text-[#0F172A] break-words">{title}</span>
+        {detail && <span className="block text-sm text-[#334155] mt-0.5 line-clamp-2 break-words">{detail}</span>}
       </span>
       {onClick && (
         <span className="hidden sm:flex items-center gap-1 text-sm font-semibold text-[#008BC5] shrink-0">
@@ -242,7 +243,7 @@ export const OverviewTab = ({ onNavigate }) => {
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-[#0F172A]">Tổng quan hệ thống</h2>
         <div className="flex items-center gap-2 shrink-0">
-          {updatedAt && <span className="hidden sm:inline text-xs text-slate-500 tabular-nums">Cập nhật lúc {formatTime(updatedAt)}</span>}
+          {updatedAt && <span className="hidden sm:inline text-sm text-[#334155] tabular-nums">Cập nhật lúc {formatTime(updatedAt)}</span>}
           <button
             type="button"
             onClick={reload}
@@ -266,7 +267,7 @@ export const OverviewTab = ({ onNavigate }) => {
 
       {/* 1. Việc cần xử lý */}
       <section
-        className={`bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 border-l-4 ${
+        className={`bg-white rounded-xl border border-slate-200 shadow-z176 p-4 sm:p-5 border-l-4 ${
           actions.length > 0 ? 'border-l-[#F6AD37]' : 'border-l-[#22C55E]'
         }`}
       >
@@ -287,7 +288,7 @@ export const OverviewTab = ({ onNavigate }) => {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">Đã có đủ các vai trò cần thiết để vận hành: ra đề, duyệt đề và dự thi.</p>
+          <p className="text-sm text-[#334155]">Đã có đủ các vai trò cần thiết để vận hành: ra đề, duyệt đề và dự thi.</p>
         )}
       </section>
 
@@ -296,11 +297,11 @@ export const OverviewTab = ({ onNavigate }) => {
         <Panel title="Tài khoản" hint="Phân bổ theo vai trò. Bấm vào một vai trò để quản lý tài khoản.">
           <div className="flex items-end justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="w-11 h-11 rounded-xl bg-[#008BC5]/10 text-[#008BC5] flex items-center justify-center shrink-0">
+              <span className="w-11 h-11 rounded-xl bg-[#006BA1] text-white flex items-center justify-center shrink-0">
                 <Users className="w-5 h-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-xs font-medium text-slate-500">Tổng số tài khoản</p>
+                <p className="text-sm font-medium text-[#334155]">Tổng số tài khoản</p>
                 <p className="text-3xl font-bold text-[#0F172A] leading-none mt-1 tabular-nums">{totalUsers}</p>
               </div>
             </div>
@@ -319,7 +320,7 @@ export const OverviewTab = ({ onNavigate }) => {
               )}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 py-6 text-center">Chưa có tài khoản nào trong hệ thống.</p>
+            <p className="text-sm text-[#64748B] py-6 text-center">Chưa có tài khoản nào trong hệ thống.</p>
           )}
 
           <ul className="mt-3 divide-y divide-slate-100">
@@ -331,8 +332,8 @@ export const OverviewTab = ({ onNavigate }) => {
                     <Icon className="w-[18px] h-[18px]" aria-hidden="true" />
                   </span>
                   <span className="flex-1 min-w-0 text-left text-sm font-medium text-[#334155] truncate">{label}</span>
-                  <span className="text-xs text-slate-500 tabular-nums w-10 text-right">{pct}%</span>
-                  <span className={`w-10 text-right text-base font-bold tabular-nums ${count === 0 ? 'text-slate-300' : 'text-[#0F172A]'}`}>{count}</span>
+                  <span className="text-sm text-[#334155] tabular-nums w-10 text-right">{pct}%</span>
+                  <span className={`w-10 text-right text-base font-bold tabular-nums ${count === 0 ? 'text-[#64748B]' : 'text-[#0F172A]'}`}>{count}</span>
                 </>
               );
               return (
@@ -357,21 +358,21 @@ export const OverviewTab = ({ onNavigate }) => {
         <div className="space-y-4 sm:space-y-5">
           {/* 3. Kỳ thi đang diễn ra */}
           <Panel title="Kỳ thi đang diễn ra">
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 min-h-[56px]">
+            <div className={`flex items-center gap-3 rounded-lg p-3 min-h-[56px] ${activeExam ? 'bg-[#166534] text-white' : 'border border-slate-200'}`}>
               <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
-                {activeExam && <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-[#22C55E] opacity-60" />}
-                <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${activeExam ? 'bg-[#22C55E]' : 'bg-slate-300'}`} />
+                {activeExam && <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />}
+                <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${activeExam ? 'bg-white' : 'bg-slate-300'}`} />
               </span>
               {activeExam ? (
-                <p className="flex-1 min-w-0 text-sm font-semibold text-[#0F172A] truncate" title={activeExam.title}>
+                <p className="flex-1 min-w-0 text-base font-semibold truncate" title={activeExam.title}>
                   {activeExam.title}
                 </p>
               ) : (
-                <p className="text-sm text-slate-500">Hiện không có kỳ thi nào đang diễn ra.</p>
+                <p className="text-sm text-[#334155]">Hiện không có kỳ thi nào đang diễn ra.</p>
               )}
               <span
-                className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  activeExam ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
+                className={`shrink-0 px-2.5 py-1 rounded-lg text-sm font-semibold ${
+                  activeExam ? 'bg-white text-[#166534]' : 'bg-[#F6F8FA] text-[#334155]'
                 }`}
               >
                 {activeExam ? 'Đang diễn ra' : 'Trống'}

@@ -31,7 +31,7 @@ export const AdminDashboard = ({ currentUser, activeTab, onTabChange }) => {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-[#0F172A] leading-tight">Bảng điều khiển quản trị</h1>
-          <p className="text-sm md:text-base text-[#64748B] mt-1">
+          <p className="text-sm md:text-base text-[#334155] mt-1">
             Quản lý người dùng và theo dõi hoạt động hệ thống Z176.
           </p>
         </div>
@@ -45,7 +45,7 @@ export const AdminDashboard = ({ currentUser, activeTab, onTabChange }) => {
         label="Các mục quản trị"
       >
         {activeTab === 'overview' && <UserInfoCard user={currentUser} />}
-        {activeTab === 'overview' && <OverviewTab />}
+        {activeTab === 'overview' && <OverviewTab onNavigate={onTabChange} />}
         {activeTab === 'accounts' && <AccountTab currentUser={currentUser} />}
         {activeTab === 'audit' && <AuditLogTab />}
         {activeTab === 'backup' && <BackupTab />}
