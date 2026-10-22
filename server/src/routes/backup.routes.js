@@ -8,13 +8,13 @@ import { createBackup, listBackups, downloadBackup, restoreBackup } from '../con
 
 const router = Router();
 
-// Upload file backup (.gz) vào thư mục tạm OS trước khi mongorestore đọc
+// Upload file backup (.gz hoặc .gz.enc) vào thư mục tạm OS trước khi mongorestore đọc
 const uploadBackupFile = multer({
   dest: path.join(os.tmpdir(), 'z176-backup-uploads'),
   limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB, chỉnh theo dung lượng DB thực tế
   fileFilter: (req, file, cb) => {
-    if (!file.originalname.endsWith('.gz')) {
-      return cb(new Error('Chỉ chấp nhận file .gz (được tạo từ chức năng backup).'));
+    if (!/\.gz(\.enc)?$/.test(file.originalname)) {
+      return cb(new Error('Chỉ chấp nhận file .gz hoặc .gz.enc (được tạo từ chức năng backup).'));
     }
     cb(null, true);
   },

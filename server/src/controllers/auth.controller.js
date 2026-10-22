@@ -26,7 +26,7 @@ export const login = asyncHandler(async (req, res) => {
   const name = String(username).trim().toLowerCase().slice(0, 64);
   // Ghi nhật ký đăng nhập; lỗi ghi log không được làm hỏng đăng nhập (thí sinh đang chờ vào thi).
   const audit = (action, actorUserId) =>
-    writeAudit({ actorUserId, action, resourceType: 'User', metadata: { username: name }, ipAddress: req.ip }).catch(() => {});
+    writeAudit({ actorUserId, action, resourceType: 'User', metadata: { username: name, detail: `Tài khoản: ${name}` }, ipAddress: req.ip }).catch(() => {});
 
   let result;
   try {

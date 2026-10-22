@@ -133,8 +133,8 @@ export const BackupTab = () => {
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0] ?? null;
-    if (file && !file.name.endsWith('.gz')) {
-      setError('Chỉ chấp nhận file .gz (được tạo từ chức năng backup).');
+    if (file && !/\.gz(\.enc)?$/.test(file.name)) {
+      setError('Chỉ chấp nhận file .gz hoặc .gz.enc (được tạo từ chức năng backup).');
       setSelectedFile(null);
       return;
     }
@@ -300,11 +300,11 @@ export const BackupTab = () => {
 
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">File sao lưu (.gz)</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">File sao lưu (.gz / .gz.enc)</label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".gz"
+              accept=".gz,.enc"
               onChange={handleFileChange}
               disabled={isRestoring}
               className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#008BC5] file:text-white hover:file:bg-[#007ba1] disabled:opacity-50"

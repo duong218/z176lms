@@ -44,7 +44,7 @@ export const downloadBackup = asyncHandler(async (req, res) => {
   const { fileName } = req.query;
 
   res.setHeader('Content-Disposition', `attachment; filename="${fileName || 'backup.gz'}"`);
-  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Type', 'application/octet-stream'); // bản mới là .gz.enc (đã mã hóa), không phải gzip thuần
 
   await backupService.streamDriveFileToResponse(fileId, res);
 

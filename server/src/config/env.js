@@ -67,6 +67,9 @@ export const env = {
     apiSecret: optional('CLOUDINARY_API_SECRET'),
   },
 
+  // Khóa mã hóa bản sao lưu (AES-256-GCM) trước khi đưa lên Google Drive. Bắt buộc ở production.
+  backupEncryptionKey: optional('BACKUP_ENCRYPTION_KEY'),
+
   // Cấu hình sao lưu dữ liệu lên Google Drive (OAuth2)
   googleBackup: {
     clientId: optional('GOOGLE_OAUTH_CLIENT_ID'),

@@ -8,6 +8,7 @@ import xlsx from 'xlsx';
 import ExcelJS from 'exceljs';
 import { Result } from '../models/result.model.js';
 import { Employee } from '../models/employee.model.js';
+import { ExamCandidate } from '../models/exam-candidate.model.js';
 
 // Pipeline kết nối cơ sở (Base Pipeline): Result -> ExamAttempt -> ExamCandidate -> Employee -> Department -> Exam -> Topic
 // Phòng ban của 1 kết quả = phòng ban (vai trò) thí sinh đã thi ở lượt thi đó (ExamAttempt.departmentId); lượt thi cũ chưa có
@@ -92,6 +93,36 @@ const topicMatchStages = (topicId) => {
 function escapeRegex(str) {
   return String(str ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+// Pipeline "CHƯA THI": thí sinh đã được xếp vào kỳ thi (ExamCandidate, tạo lúc phát hành đề) nhưng chưa có lượt thi CHÍNH THỨC nào.
+// Không có Result để lọc nên truy vấn từ ExamCandidate. Chỉ tính nhân viên còn hoạt động (người đã nghỉ không phải "vắng thi").
+// Phòng ban = phòng của mã đề được gán (vai trò sẽ thi); thiếu mã đề thì dùng phòng chính. Mới nhất lên trước.
+// Chỉ nhận bộ lọc departmentId và search (bộ lọc ngày/đạt-không đạt gắn với kết quả nên không áp dụng ở đây).
+export const absentPipeline = (filters = {}) => {
+  const match = {};
+  if (filters.departmentId) {
+    match['department._id'] = new mongoose.Types.ObjectId(filters.departmentId);
+  }
+  if (filters.search) {
+    match['employee.fullname'] = { $regex: escapeRegex(filters.search), $options: 'i' };
+  }
+  return [
+    { $lookup: { from: 'examattempts', localField: '_id', foreignField: 'examCandidateId', as: 'attempts' } },
+    { $match: { 'attempts.attemptType': { $ne: 'official' } } },
+    { $lookup: { from: 'employees', localField: 'employeeId', foreignField: '_id', as: 'employee' } },
+    { $unwind: '$employee' },
+    { $match: { 'employee.isActive': { $ne: false } } },
+    { $lookup: { from: 'examcodes', localField: 'examCodeId', foreignField: '_id', as: 'code' } },
+    { $unwind: { path: '$code', preserveNullAndEmptyArrays: true } },
+    { $addFields: { reportDepartmentId: { $ifNull: ['$code.departmentId', '$employee.departmentId'] } } },
+    { $lookup: { from: 'departments', localField: 'reportDepartmentId', foreignField: '_id', as: 'department' } },
+    { $unwind: '$department' },
+    { $lookup: { from: 'exams', localField: 'examId', foreignField: '_id', as: 'exam' } },
+    { $unwind: '$exam' },
+    { $match: match },
+    { $sort: { 'exam.createdAt': -1, 'employee.fullname': 1, _id: 1 } },
+  ];
+};
 
 // ============ Cấu hình định dạng file Excel (ExcelJS Styling) ============
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF008BC5' } };
@@ -378,21 +409,33 @@ export const reportService = {
     const limit = parseInt(filters.limit, 10) || 20;
     const skip = (page - 1) * limit;
 
-    const pipeline = [
-      ...getBasePipeline(),
-      { $match: matchStage },
-      { $sort: { createdAt: -1 } },
-    ];
+    // passed = 'absent' ("Chưa thi"): truy vấn từ ExamCandidate vì thí sinh chưa thi thì chưa có Result
+    const absent = filters.passed === 'absent';
+    const Model = absent ? ExamCandidate : Result;
+    const pipeline = absent
+      ? absentPipeline(filters)
+      : [...getBasePipeline(), { $match: matchStage }, { $sort: { createdAt: -1 } }];
 
     const [data, countResult] = await Promise.all([
-      Result.aggregate([...pipeline, { $skip: skip }, { $limit: limit }]),
-      Result.aggregate([...pipeline, { $count: 'total' }]),
+      Model.aggregate([...pipeline, { $skip: skip }, { $limit: limit }]),
+      Model.aggregate([...pipeline, { $count: 'total' }]),
     ]);
 
     const total = countResult.length > 0 ? countResult[0].total : 0;
     const totalPages = Math.ceil(total / limit);
 
-    const formattedData = data.map(item => ({
+    const formattedData = data.map(item => absent ? {
+      _id: item._id,
+      examCandidateId: item._id, // ở nhánh này item là ExamCandidate (chưa có Result)
+      employeeName: item.employee.fullname,
+      departmentId: item.department._id,
+      departmentName: item.department.name,
+      examTitle: item.exam.title,
+      score: null,
+      passed: null,
+      submittedAt: null,
+      notTaken: true,
+    } : ({
       _id: item._id,
       examCandidateId: item.candidate._id,
       employeeName: item.employee.fullname,
@@ -438,22 +481,19 @@ export const reportService = {
       matchStage['employee.fullname'] = { $regex: filters.search, $options: 'i' };
     }
 
-    const pipeline = [
-      ...getBasePipeline(),
-      { $match: matchStage },
-      { $sort: { createdAt: -1 } },
-    ];
-
-    const data = await Result.aggregate(pipeline);
+    const absent = filters.passed === 'absent'; // "Chưa thi": xuất danh sách thí sinh chưa có lượt thi nào
+    const data = absent
+      ? await ExamCandidate.aggregate(absentPipeline(filters))
+      : await Result.aggregate([...getBasePipeline(), { $match: matchStage }, { $sort: { createdAt: -1 } }]);
 
     const worksheetData = data.map((item, index) => ({
       'STT': index + 1,
       'Họ và tên': item.employee.fullname,
       'Phòng ban': item.department.name,
       'Bài thi': item.exam.title,
-      'Điểm': item.score,
-      'Kết quả': item.passed ? 'Đạt' : 'Không đạt',
-      'Ngày nộp': item.attempt.submittedAt ? new Date(item.attempt.submittedAt).toLocaleString('vi-VN') : '',
+      'Điểm': absent ? '' : item.score,
+      'Kết quả': absent ? 'Chưa thi' : item.passed ? 'Đạt' : 'Không đạt',
+      'Ngày nộp': !absent && item.attempt.submittedAt ? new Date(item.attempt.submittedAt).toLocaleString('vi-VN') : '',
     }));
 
     const worksheet = xlsx.utils.json_to_sheet(worksheetData);

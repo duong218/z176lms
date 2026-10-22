@@ -8,6 +8,16 @@ import { useConfirm } from '../ConfirmDialog';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { Select } from '../Select';
 
+// Nhãn kết quả: ĐẠT / KHÔNG ĐẠT / CHƯA THI (item.notTaken = được xếp vào kỳ thi nhưng chưa có lượt thi nào)
+const ResultBadge = ({ item, className = '' }) => {
+  const [text, color] = item.notTaken
+    ? ['CHƯA THI', 'bg-[#FFFBEB] text-[#B45309]']
+    : item.passed
+      ? ['ĐẠT', 'bg-[#F0FDF4] text-[#166534]']
+      : ['KHÔNG ĐẠT', 'bg-[#FEECEC] text-[#C53030]'];
+  return <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${color} ${className}`}>{text}</span>;
+};
+
 export const DetailedResultsTab = () => {
   const { showToast } = useToast();
   const confirmAction = useConfirm();
@@ -201,6 +211,7 @@ export const DetailedResultsTab = () => {
               <option value="">Tất cả kết quả</option>
               <option value="true">Đạt</option>
               <option value="false">Không đạt</option>
+              <option value="absent">Chưa thi</option>
             </Select>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -209,7 +220,9 @@ export const DetailedResultsTab = () => {
               name="startDate"
               value={filters.startDate}
               onChange={handleFilterChange}
-              className="h-12 px-3 bg-white border border-[#E2E8F0] rounded-[10px] text-base text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
+              disabled={filters.passed === 'absent'}
+              title={filters.passed === 'absent' ? 'Bộ lọc ngày không áp dụng cho danh sách Chưa thi' : undefined}
+              className="h-12 px-3 disabled:opacity-50 disabled:cursor-not-allowed bg-white border border-[#E2E8F0] rounded-[10px] text-base text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
             />
             <span className="hidden sm:inline text-[#64748B]">-</span>
             <input
@@ -217,7 +230,9 @@ export const DetailedResultsTab = () => {
               name="endDate"
               value={filters.endDate}
               onChange={handleFilterChange}
-              className="h-12 px-3 bg-white border border-[#E2E8F0] rounded-[10px] text-base text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
+              disabled={filters.passed === 'absent'}
+              title={filters.passed === 'absent' ? 'Bộ lọc ngày không áp dụng cho danh sách Chưa thi' : undefined}
+              className="h-12 px-3 disabled:opacity-50 disabled:cursor-not-allowed bg-white border border-[#E2E8F0] rounded-[10px] text-base text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
             />
           </div>
           <button
@@ -242,7 +257,9 @@ export const DetailedResultsTab = () => {
         <div className="bg-white rounded-xl border border-[#E2E8F0] p-12 text-center">
           <div className="flex flex-col items-center justify-center text-[#64748B]">
             <FileText className="w-12 h-12 mb-3" />
-            <p className="text-base font-medium text-[#334155]">Chưa có kết quả thi nào</p>
+            <p className="text-base font-medium text-[#334155]">
+              {filters.passed === 'absent' ? 'Không có thí sinh nào chưa thi' : 'Chưa có kết quả thi nào'}
+            </p>
             <p className="text-base mt-1">Hệ thống chưa ghi nhận bài làm nào phù hợp với bộ lọc hiện tại.</p>
           </div>
         </div>
@@ -269,19 +286,15 @@ export const DetailedResultsTab = () => {
                       <td className="px-6 py-4 font-medium text-[#0F172A] text-base">{item.employeeName}</td>
                       <td className="px-6 py-4 text-[#334155] text-base">{item.departmentName}</td>
                       <td className="px-6 py-4 text-[#334155] text-base">{item.examTitle}</td>
-                      <td className="px-6 py-4 text-center font-bold text-[#F6AD37] text-base">{item.score}</td>
+                      <td className="px-6 py-4 text-center font-bold text-[#F6AD37] text-base">{item.notTaken ? '-' : item.score}</td>
                       <td className="px-6 py-4 text-center">
-                        {item.passed ? (
-                          <span className="px-3 py-1 bg-[#F0FDF4] text-[#166534] rounded-lg text-sm font-semibold">ĐẠT</span>
-                        ) : (
-                          <span className="px-3 py-1 bg-[#FEECEC] text-[#C53030] rounded-lg text-sm font-semibold">KHÔNG ĐẠT</span>
-                        )}
+                        <ResultBadge item={item} />
                       </td>
                       <td className="px-6 py-4 text-[#334155] text-base">
                         {item.submittedAt ? new Date(item.submittedAt).toLocaleString('vi-VN') : '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
+                        {!item.notTaken && <button
                           onClick={() => handleGrantExtraAttempt(item)}
                           disabled={grantingId === item._id}
                           title="Mở lại lượt thi cho thí sinh này"
@@ -289,7 +302,7 @@ export const DetailedResultsTab = () => {
                         >
                           <RotateCcw className="w-4 h-4" />
                           {grantingId === item._id ? 'Đang cấp...' : 'Cấp lại lượt thi'}
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                   ))}
@@ -307,11 +320,7 @@ export const DetailedResultsTab = () => {
                     <div className="font-bold text-[#0F172A] text-base">{item.employeeName}</div>
                     <div className="text-base text-[#64748B]">{item.departmentName}</div>
                   </div>
-                  {item.passed ? (
-                    <span className="px-3 py-1 bg-[#F0FDF4] text-[#166534] rounded-lg text-sm font-semibold shrink-0">ĐẠT</span>
-                  ) : (
-                    <span className="px-3 py-1 bg-[#FEECEC] text-[#C53030] rounded-lg text-sm font-semibold shrink-0">KHÔNG ĐẠT</span>
-                  )}
+                  <ResultBadge item={item} className="shrink-0" />
                 </div>
 
                 <div className="text-base text-[#334155]">
@@ -321,21 +330,21 @@ export const DetailedResultsTab = () => {
                 <div className="flex items-center justify-between text-base">
                   <div>
                     <span className="text-[#64748B]">Điểm: </span>
-                    <span className="font-bold text-[#F6AD37]">{item.score}</span>
+                    <span className="font-bold text-[#F6AD37]">{item.notTaken ? '-' : item.score}</span>
                   </div>
                   <div className="text-[#64748B] text-sm">
                     {item.submittedAt ? new Date(item.submittedAt).toLocaleString('vi-VN') : '-'}
                   </div>
                 </div>
 
-                <button
+                {!item.notTaken && <button
                   onClick={() => handleGrantExtraAttempt(item)}
                   disabled={grantingId === item._id}
                   className="w-full h-12 flex items-center justify-center gap-2 bg-[#EAF6FF] hover:bg-[#008BC5]/20 text-[#008BC5] font-semibold text-base rounded-[10px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed min-touch-target"
                 >
                   <RotateCcw className="w-4 h-4" />
                   {grantingId === item._id ? 'Đang cấp...' : 'Cấp lại lượt thi'}
-                </button>
+                </button>}
               </div>
             ))}
           </div>
