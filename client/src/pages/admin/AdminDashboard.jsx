@@ -5,6 +5,7 @@ import { AccountTab } from '../../components/admin/AccountTab';
 import { AuditLogTab } from '../../components/admin/AuditLogTab';
 import { BackupTab } from '../../components/admin/BackupTab';
 import { AiSettingsTab } from '../../components/admin/AiSettingsTab';
+import { BackupProgressCard } from '../../components/admin/BackupProgressCard';
 import { LayoutDashboard, Users, Activity, Database, Bot } from 'lucide-react';
 
 // Xuất ra ngoài để App.jsx dùng lại đúng 1 nguồn danh sách tab này khi
@@ -51,6 +52,8 @@ export const AdminDashboard = ({ currentUser, activeTab, onTabChange }) => {
         {activeTab === 'backup' && <BackupTab />}
         {activeTab === 'ai' && <AiSettingsTab />}
       </DashboardShell>
+      {/* Tiến độ backup thủ công: hiện ở mọi mục để admin vừa sao lưu vừa làm việc khác */}
+      <BackupProgressCard />
     </div>
   );
 };

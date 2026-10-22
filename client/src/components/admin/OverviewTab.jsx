@@ -7,21 +7,21 @@ import {
   GraduationCap,
   Cloud,
   Loader2,
-  CheckCircle,
   CheckCircle2,
   AlertTriangle,
   ServerCrash,
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { fetchOverviewStats, triggerBackup } from '../../services/admin.service';
+import { fetchOverviewStats } from '../../services/admin.service';
+import { useBackupJob, startBackup } from '../../services/backup-job.store';
 
 // Tab Tổng quan cho Quản trị viên — cùng khung với tab Tổng quan của Người ra đề: "việc cần xử lý trước, số liệu sau".
 //  1. Việc cần xử lý: thiếu vai trò thiết yếu (không ai ra đề / duyệt đề / dự thi), chỉ có 1 quản trị viên.
 //  2. Tài khoản: tổng + thanh phân bổ theo vai trò + từng vai trò bấm được để sang tab Tài khoản.
 //  3. Kỳ thi đang diễn ra.
 //  4. Sao lưu dữ liệu (kèm kết quả và lối tắt sang tab Sao lưu & Phục hồi).
-// Chỉ dùng lại fetchOverviewStats / triggerBackup đã có, không thêm API mới. Bỏ recharts vì thẻ vai trò đã nói đủ.
+// Chỉ dùng lại fetchOverviewStats và store tiến độ backup (backup-job.store.js). Bỏ recharts vì thẻ vai trò đã nói đủ.
 
 const ROLE_META = {
   admin: { label: 'Quản trị viên', icon: Shield, color: 'gray' },
@@ -102,8 +102,8 @@ export const OverviewTab = ({ onNavigate }) => {
   const [updatedAt, setUpdatedAt] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [backupLoading, setBackupLoading] = useState(false);
-  const [backupResult, setBackupResult] = useState(null);
+  const backup = useBackupJob();
+  const backupLoading = backup.state === 'running';
 
   useEffect(() => {
     let cancelled = false;
@@ -127,19 +127,6 @@ export const OverviewTab = ({ onNavigate }) => {
       cancelled = true;
     };
   }, [reloadKey]);
-
-  const handleBackup = async () => {
-    setBackupLoading(true);
-    setBackupResult(null);
-    try {
-      const res = await triggerBackup();
-      setBackupResult(res);
-    } catch {
-      setBackupResult({ success: false, message: 'Backup thất bại' });
-    } finally {
-      setBackupLoading(false);
-    }
-  };
 
   const reload = () => setReloadKey((k) => k + 1);
 
@@ -384,43 +371,13 @@ export const OverviewTab = ({ onNavigate }) => {
           <Panel title="Sao lưu dữ liệu" hint="Demo: lưu tạm trên Google Drive.">
             <button
               type="button"
-              onClick={handleBackup}
+              onClick={startBackup}
               disabled={backupLoading}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 min-h-[44px] bg-[#008BC5] hover:bg-[#0693E3] text-white rounded-lg font-semibold transition-colors disabled:opacity-70 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#008BC5]"
             >
               {backupLoading ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : <Cloud className="w-5 h-5" aria-hidden="true" />}
-              <span>{backupLoading ? 'Đang sao lưu…' : 'Backup dữ liệu'}</span>
+              <span>{backupLoading ? `Đang sao lưu${backup.phase === 'dump' ? '…' : ` ${backup.percent}%`}` : 'Backup dữ liệu'}</span>
             </button>
-
-            {backupResult && (
-              <div
-                role={backupResult.success ? 'status' : 'alert'}
-                className={`mt-3 p-3 rounded-lg flex items-start gap-3 border border-l-4 ${
-                  backupResult.success
-                    ? 'bg-[#F0FDF4] border-[#22C55E]/40 border-l-[#22C55E] text-[#0F172A]'
-                    : 'bg-[#FEECEC] border-[#E53E3E]/40 border-l-[#E53E3E] text-[#0F172A]'
-                }`}
-              >
-                {backupResult.success ? (
-                  <CheckCircle className="w-5 h-5 shrink-0 text-[#16A34A]" aria-hidden="true" />
-                ) : (
-                  <ServerCrash className="w-5 h-5 shrink-0 text-[#C53030]" aria-hidden="true" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium break-words">{backupResult.message}</p>
-                  {backupResult.downloadUrl && (
-                    <a
-                      href={backupResult.downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm underline mt-1 inline-block py-1 text-[#16A34A] hover:text-[#22C55E]"
-                    >
-                      Xem file trên Google Drive
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
 
             {canGo && (
               <button

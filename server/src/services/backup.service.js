@@ -111,12 +111,17 @@ function deriveKey(salt) {
   return crypto.scryptSync(env.backupEncryptionKey, salt, 32);
 }
 
-async function encryptFile(src, dest) {
+async function encryptFile(src, dest, onBytes) {
   const salt = crypto.randomBytes(SALT_LEN);
   const iv = crypto.randomBytes(IV_LEN);
   const cipher = crypto.createCipheriv('aes-256-gcm', deriveKey(salt), iv);
   await fs.writeFile(dest, Buffer.concat([MAGIC, salt, iv]), { mode: 0o600 });
-  await pipeline(fssync.createReadStream(src), cipher, fssync.createWriteStream(dest, { flags: 'a' }));
+  const input = fssync.createReadStream(src);
+  if (onBytes) {
+    let done = 0;
+    input.on('data', (chunk) => onBytes((done += chunk.length)));
+  }
+  await pipeline(input, cipher, fssync.createWriteStream(dest, { flags: 'a' }));
   await fs.appendFile(dest, cipher.getAuthTag());
 }
 
@@ -176,24 +181,29 @@ async function dumpToLocalFile(prefix = 'z176-backup') {
 }
 
 // Tải file nén .gz lên thư mục sao lưu trên Google Drive
-async function uploadToDrive(filePath, fileName) {
+async function uploadToDrive(filePath, fileName, onBytes) {
   const drive = getDriveClient();
-  const res = await drive.files.create({
-    requestBody: {
-      name: fileName,
-      parents: [env.googleBackup.folderId],
+  const res = await drive.files.create(
+    {
+      requestBody: {
+        name: fileName,
+        parents: [env.googleBackup.folderId],
+      },
+      media: {
+        mimeType: 'application/octet-stream',
+        body: fssync.createReadStream(filePath),
+      },
+      fields: 'id, name, size, createdTime',
     },
-    media: {
-      mimeType: 'application/octet-stream',
-      body: fssync.createReadStream(filePath),
-    },
-    fields: 'id, name, size, createdTime',
-  });
+    onBytes ? { onUploadProgress: (evt) => onBytes(evt.bytesRead) } : undefined
+  );
   return res.data;
 }
 
 // Quy trình sao lưu trọn gói: Dump DB -> Mã hóa -> Upload Drive -> Dọn file tạm
-async function createBackupToDrive({ prefix = 'z176-backup' } = {}) {
+// onProgress(phase, percent) tùy chọn: dump 0% (mongodump không báo tiến độ nên không có % thật) -> mã hóa 30-50% -> upload tới 100%.
+// Không bật mã hóa (dev) thì upload chiếm 30-100%.
+async function createBackupToDrive({ prefix = 'z176-backup', onProgress } = {}) {
   const encrypt = Boolean(env.backupEncryptionKey);
   // Production: thà báo lỗi rõ còn hơn lặng lẽ đẩy dữ liệu nhân sự chưa mã hóa lên Drive ngoài.
   if (!encrypt && env.isProduction) {
@@ -205,15 +215,69 @@ async function createBackupToDrive({ prefix = 'z176-backup' } = {}) {
   }
   if (!encrypt) console.warn('[backup] BACKUP_ENCRYPTION_KEY chưa đặt: bản sao lưu lên Drive KHÔNG được mã hóa (chỉ cho dev).');
 
-  const { filePath, fileName } = await dumpToLocalFile(prefix);
+  const report = (phase, from, span, done, total) =>
+    onProgress?.(phase, Math.min(100, Math.round(from + (span * done) / Math.max(total, 1))));
+
+  onProgress?.('dump', 0);
+  const { filePath, fileName, size } = await dumpToLocalFile(prefix);
   const encPath = `${filePath}.enc`;
   try {
-    if (encrypt) await encryptFile(filePath, encPath);
-    return await uploadToDrive(encrypt ? encPath : filePath, encrypt ? `${fileName}.enc` : fileName);
+    if (encrypt) await encryptFile(filePath, encPath, (done) => report('encrypt', 30, 20, done, size));
+    const upFrom = encrypt ? 50 : 30;
+    const upPath = encrypt ? encPath : filePath;
+    const { size: upSize } = await fs.stat(upPath);
+    return await uploadToDrive(upPath, encrypt ? `${fileName}.enc` : fileName, (sent) =>
+      report('upload', upFrom, 100 - upFrom, sent, upSize)
+    );
   } finally {
     await cleanupLocalFile(filePath);
     await cleanupLocalFile(encPath);
   }
+}
+
+// --- Backup thủ công chạy NỀN: POST trả về ngay, client hỏi tiến độ qua getBackupJob() ---
+// Chỉ 1 job cùng lúc. Trạng thái giữ trong RAM của tiến trình server: restart server giữa chừng thì job mất.
+// ponytail: job trong RAM (1 instance server); chạy nhiều instance thì đưa trạng thái vào DB/Redis.
+let job = { state: 'idle' };
+
+function getBackupJob() {
+  return { ...job };
+}
+
+// Đang chạy thì bỏ qua (idempotent): client chỉ cần theo dõi job hiện tại.
+function startBackupJob({ prefix = 'z176-manual', afterSuccess } = {}) {
+  if (job.state === 'running') return;
+  job = { state: 'running', phase: 'dump', percent: 0, startedAt: Date.now() };
+  const mine = job;
+  (async () => {
+    try {
+      const file = await createBackupToDrive({
+        prefix,
+        onProgress: (phase, percent) => Object.assign(mine, { phase, percent }),
+      });
+      mine.phase = 'rotate';
+      const { kept, deleted } = await rotateDriveBackups();
+      try {
+        await afterSuccess?.(file, { kept, deleted });
+      } catch (err) {
+        console.error('[backup] afterSuccess lỗi (bản sao lưu đã tạo xong):', err.message);
+      }
+      Object.assign(mine, {
+        state: 'done',
+        percent: 100,
+        finishedAt: Date.now(),
+        message: 'Tạo bản sao lưu thành công.',
+        result: { id: file.id, name: file.name, size: Number(file.size ?? 0), createdTime: file.createdTime },
+      });
+    } catch (err) {
+      console.error('[backup] Backup thủ công thất bại:', err.message);
+      Object.assign(mine, {
+        state: 'error',
+        finishedAt: Date.now(),
+        message: err instanceof ApiError ? err.message : 'Backup thất bại. Vui lòng thử lại hoặc kiểm tra nhật ký máy chủ.',
+      });
+    }
+  })();
 }
 
 // Lấy danh sách các file backup đang lưu trên Google Drive (mới nhất xếp trước)
@@ -281,6 +345,8 @@ async function restoreFromLocalFile(localFilePath) {
 
 export const backupService = {
   createBackupToDrive,
+  startBackupJob,
+  getBackupJob,
   listDriveBackups,
   rotateDriveBackups,
   downloadDriveFileToLocal,
@@ -291,4 +357,4 @@ export const backupService = {
   decryptFile,
   isEncrypted,
   MAX_BACKUPS_KEPT,
-};
+};

@@ -126,17 +126,22 @@ export async function fetchAuditLogs(params = {}) {
   return res; // { data: items[], pagination: {...} }
 }
 
-export async function triggerBackup() {
+// Bắt đầu backup thủ công — chạy NỀN trên server, trả ngay trạng thái job (đang chạy thì trả job hiện tại).
+// Theo dõi tiến độ bằng fetchBackupStatus (xem backup-job.store.js).
+export async function startBackup() {
   const res = await apiRequest('/backups', {
     method: 'POST',
     headers: getAuthHeaders(),
   });
-  // res.data: { id, name, size, createdTime } — trả kèm link Drive để admin bấm xem trực tiếp
-  return {
-    success: true,
-    message: res.message || 'Backup dữ liệu thành công',
-    downloadUrl: res.data?.id ? `https://drive.google.com/file/d/${res.data.id}/view` : undefined,
-  };
+  return res.data;
+}
+
+/** Trạng thái job backup thủ công: { state: idle|running|done|error, phase, percent, message, result } */
+export async function fetchBackupStatus() {
+  const res = await apiRequest('/backups/status', {
+    headers: getAuthHeaders(),
+  });
+  return res.data;
 }
 
 /** Danh sách các bản backup hiện có trên Google Drive (tối đa `maxKept` bản, mới nhất trước). */

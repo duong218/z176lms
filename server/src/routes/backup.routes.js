@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { authenticate, requireRoleCodes } from '../middlewares/auth.middleware.js';
 import { requirePasswordChanged } from '../middlewares/require-password-changed.middleware.js';
-import { createBackup, listBackups, downloadBackup, restoreBackup } from '../controllers/backup.controller.js';
+import { createBackup, getBackupStatus, listBackups, downloadBackup, restoreBackup } from '../controllers/backup.controller.js';
 
 const router = Router();
 
@@ -24,6 +24,7 @@ router.use(authenticate, requirePasswordChanged, requireRoleCodes('admin'));
 
 router.get('/', listBackups);
 router.post('/', createBackup);
+router.get('/status', getBackupStatus);
 router.get('/:fileId/download', downloadBackup);
 router.post('/restore', uploadBackupFile.single('backupFile'), restoreBackup);
 

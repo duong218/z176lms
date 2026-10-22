@@ -8,24 +8,28 @@ import { auditService } from '../services/audit.service.js';
 import { ApiError } from '../utils/api-error.js';
 import { asyncHandler } from '../utils/async-handler.js';
 
-// Tạo bản sao lưu CSDL thủ công (Admin), nén gz -> tải lên Google Drive -> tự động xoay vòng giữ 5 bản gần nhất
+// Bắt đầu sao lưu CSDL thủ công (Admin) CHẠY NỀN: nén gz -> mã hóa -> tải lên Google Drive -> xoay vòng giữ 5 bản gần nhất.
+// Trả 202 ngay kèm trạng thái job; tiến độ lấy qua GET /backups/status. Đang có job chạy thì trả luôn job đó.
 export const createBackup = asyncHandler(async (req, res) => {
-  const driveFile = await backupService.createBackupToDrive({ prefix: 'z176-manual' });
-  const { kept, deleted } = await backupService.rotateDriveBackups();
-
-  await auditService.writeAudit({
-    actorUserId: req.auth.userId,
-    action: 'BACKUP_MANUAL_CREATE',
-    resourceType: 'Backup',
-    metadata: { driveFileId: driveFile.id, fileName: driveFile.name, kept, deleted },
-    ipAddress: req.ip,
+  const { userId } = req.auth;
+  const ipAddress = req.ip;
+  backupService.startBackupJob({
+    prefix: 'z176-manual',
+    afterSuccess: (driveFile, { kept, deleted }) =>
+      auditService.writeAudit({
+        actorUserId: userId,
+        action: 'BACKUP_MANUAL_CREATE',
+        resourceType: 'Backup',
+        metadata: { driveFileId: driveFile.id, fileName: driveFile.name, kept, deleted },
+        ipAddress,
+      }),
   });
+  res.status(202).json({ success: true, data: backupService.getBackupJob(), message: 'Đã bắt đầu sao lưu.' });
+});
 
-  res.status(201).json({
-    success: true,
-    data: { id: driveFile.id, name: driveFile.name, size: Number(driveFile.size ?? 0), createdTime: driveFile.createdTime },
-    message: 'Tạo bản sao lưu thành công.',
-  });
+// Tiến độ backup thủ công: { state: idle|running|done|error, phase, percent, message, result }
+export const getBackupStatus = asyncHandler(async (req, res) => {
+  res.json({ success: true, data: backupService.getBackupJob() });
 });
 
 // Lấy danh sách các bản sao lưu đang lưu trữ trên Google Drive
@@ -87,4 +91,4 @@ export const restoreBackup = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, message: 'Khôi phục dữ liệu thành công.' });
-});
+});
