@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  UserCircle2,
   Building2,
   BadgeCheck,
   Award,
@@ -443,12 +442,14 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
               {SIDEBAR_ITEMS.filter((item) => item.id !== 'ai' || aiEnabled).map((item) => {
                 const Icon = item.icon;
                 const isActive = activeSection === item.id;
+                // Số hiệu thông báo: còn lượt thi chính thức và vào thi được -> hiện số lượt còn lại
+                const badge = item.id === 'exam' && canStartExam ? attemptsLeft : 0;
                 return (
                   <button
                     key={item.id}
                     onClick={() => setActiveSection(item.id)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-2 md:px-4 py-3 min-h-[76px] md:min-h-[56px] rounded-lg text-sm md:text-base font-semibold text-center md:text-left transition-colors min-touch-target ${
+                    className={`relative flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 px-2 md:px-4 py-3 min-h-[76px] md:min-h-[56px] rounded-lg text-sm md:text-base font-semibold text-center md:text-left transition-colors min-touch-target ${
                       isActive
                         ? 'bg-[#006BA1] text-white border border-[#006BA1]'
                         : 'text-[#0F172A] md:text-slate-500 hover:text-[#0F172A] hover:bg-slate-100 border border-slate-200 md:border-transparent'
@@ -456,6 +457,14 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
                   >
                     <Icon className="w-6 h-6 md:w-5 md:h-5 shrink-0" aria-hidden="true" />
                     <span className="leading-tight">{item.label}</span>
+                    {badge > 0 && (
+                      <span
+                        className="absolute top-1.5 right-1.5 md:static md:ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-[#E53E3E] text-white text-[11px] font-bold flex items-center justify-center leading-none"
+                        aria-label={`Còn ${badge} lượt thi chính thức`}
+                      >
+                        {badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -469,53 +478,49 @@ export const CandidateDashboard = ({ onOpenExam, examModalOpen, activeExam }) =>
               <>
                 {/* Hồ sơ */}
                 <div
-                  className="animate-fade-in-up rounded-xl shadow-z176 bg-[#006BA1] text-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4"
+                  className="animate-fade-in-up rounded-xl shadow-z176 bg-[#006BA1] text-white p-4 sm:p-6"
                   style={{ '--stagger-delay': '0ms' }}
                 >
-                  <div
-                    className="w-16 h-16 rounded-xl bg-white text-[#006BA1] text-3xl font-bold flex items-center justify-center shrink-0"
-                    aria-hidden="true"
-                  >
-                    {(lastName[0] || '?').toUpperCase()}
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-white text-[#006BA1] text-2xl sm:text-3xl font-bold flex items-center justify-center shrink-0"
+                      aria-hidden="true"
+                    >
+                      {(lastName[0] || '?').toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-xl sm:text-[28px] font-bold leading-tight break-words">
+                        Xin chào, {lastName || employee.fullname}
+                      </h2>
+                      <p className="mt-0.5 text-base font-semibold text-white/90 break-words">{employee.fullname}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-2xl sm:text-[28px] font-bold leading-tight break-words">
-                      Xin chào, {lastName || employee.fullname}
-                    </h2>
-                    <dl className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2">
-                      <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
-                          <UserCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-                          Họ và tên
-                        </dt>
-                        <dd className="text-base font-semibold break-words">{employee.fullname}</dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
-                          <BadgeCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
-                          Mã nhân viên
-                        </dt>
-                        <dd className="text-base font-semibold font-mono">{employee.employeeCode || '—'}</dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
-                          <Building2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-                          Phòng ban
-                        </dt>
-                        <dd className="text-base font-semibold break-words">{employee.departmentName || '—'}</dd>
-                        {employee.extraDepartments?.length > 0 && (
-                          <dd className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span className="text-sm text-white/90">Kiêm nhiệm:</span>
-                            {employee.extraDepartments.map((d) => (
-                              <span key={d._id} className="px-2.5 py-0.5 rounded-lg bg-white text-[#006BA1] text-sm font-semibold">
-                                {d.name}
-                              </span>
-                            ))}
+                  <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-2 sm:gap-3 max-w-xl">
+                    <div className="min-w-0 rounded-lg bg-white/15 px-3 py-2">
+                      <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
+                        <BadgeCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        Mã nhân viên
+                      </dt>
+                      <dd className="text-base font-bold font-mono">{employee.employeeCode || '—'}</dd>
+                    </div>
+                    <div className="min-w-0 rounded-lg bg-white/15 px-3 py-2">
+                      <dt className="flex items-center gap-1.5 text-sm font-semibold text-white/90">
+                        <Building2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        Phòng ban
+                      </dt>
+                      <dd className="text-base font-bold break-words">{employee.departmentName || '—'}</dd>
+                    </div>
+                    {employee.extraDepartments?.length > 0 && (
+                      <div className="col-span-2 flex flex-wrap items-center gap-1.5">
+                        <dt className="text-sm font-semibold text-white/90">Kiêm nhiệm:</dt>
+                        {employee.extraDepartments.map((d) => (
+                          <dd key={d._id} className="px-2.5 py-0.5 rounded-lg bg-white text-[#006BA1] text-sm font-semibold">
+                            {d.name}
                           </dd>
-                        )}
+                        ))}
                       </div>
-                    </dl>
-                  </div>
+                    )}
+                  </dl>
                 </div>
 
                 {/* Việc cần làm: kỳ thi hiện tại */}
