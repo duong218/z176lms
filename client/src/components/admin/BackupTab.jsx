@@ -290,7 +290,7 @@ export const BackupTab = () => {
           <div>
             <h3 className="text-base sm:text-lg font-bold text-[#0F172A]">Khôi phục dữ liệu</h3>
             <p className="text-sm text-slate-600 mt-1">
-              Chọn 1 file sao lưu (.gz) — có thể tải từ danh sách phía trên hoặc file backup đã lưu sẵn trên máy.
+              Chọn 1 file sao lưu (.gz/.gz.enc) — có thể tải từ danh sách phía trên hoặc file backup đã lưu sẵn trên máy.
               Thao tác này sẽ <b>XOÁ TOÀN BỘ dữ liệu hiện tại</b> và ghi đè bằng dữ liệu trong file, không thể hoàn
               tác. Toàn bộ phiên đăng nhập hiện có (kể cả của chính bạn) có thể bị ảnh hưởng nếu tài khoản không còn
               tồn tại sau khi khôi phục.
