@@ -53,7 +53,7 @@ const toLocalInputValue = (date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-export const ExamReviewTab = () => {
+export const ExamReviewTab = ({ onCountsChange }) => {
   const { showToast } = useToast();
   const confirmAction = useConfirm();
   const [pendingExams, setPendingExams] = useState([]);
@@ -108,6 +108,11 @@ export const ExamReviewTab = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Báo số việc chờ lên Dashboard (huy hiệu đỏ ở menu) ngay sau mỗi lần duyệt/đăng/từ chối
+  useEffect(() => {
+    if (!loading) onCountsChange?.({ pending: pendingExams.length, approved: approvedExams.length });
+  }, [loading, pendingExams.length, approvedExams.length, onCountsChange]);
 
   // Dùng chung cho handleApprove/handleReject/handleArchive bên dưới — khi
   // action bị chặn vì kỳ thi không còn ở trạng thái mong đợi nữa (thường do

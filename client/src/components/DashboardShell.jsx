@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { TabBadge } from './TabBadge';
 
 // Khung điều hướng dùng chung cho 3 dashboard (Quản trị, Người duyệt đề, Người ra đề):
 //  - từ lg (1024px): thanh chức năng DỌC bên trái, sticky, thu gọn được thành cột biểu tượng
@@ -64,7 +65,8 @@ export const DashboardShell = ({ tabs, activeTab, onTabChange, idPrefix, label, 
                 >
                   {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" aria-hidden="true" />}
                   <span className="shrink-0">{tab.icon}</span>
-                  <span className={collapsed ? 'sr-only' : 'min-w-0 leading-snug'}>{tab.label}</span>
+                  <span className={collapsed ? 'sr-only' : 'min-w-0 flex-1 leading-snug'}>{tab.label}</span>
+                  <TabBadge count={tab.badge} className={collapsed ? 'absolute top-1 right-1' : ''} />
                 </button>
               );
             })}
@@ -108,6 +110,7 @@ export const DashboardShell = ({ tabs, activeTab, onTabChange, idPrefix, label, 
               >
                 {tab.icon}
                 {tab.label}
+                <TabBadge count={tab.badge} />
                 <span
                   className={`absolute left-3 right-3 bottom-0 h-0.5 rounded-full transition-colors ${isActive ? 'bg-[#008BC5]' : 'bg-transparent'}`}
                   aria-hidden="true"

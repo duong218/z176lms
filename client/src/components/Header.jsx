@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TabBadge } from './TabBadge';
 import { Home, FileText, Award, CheckSquare, PhoneCall, User, Menu, X, LogOut, Shield, LayoutDashboard, KeyRound } from 'lucide-react';
 import { UnitLogoDisplay } from './UnitLogoDisplay';
 import { NotificationBell } from './NotificationBell';
@@ -260,7 +261,8 @@ export const Header = ({
                         }`}
                     >
                       {tab.icon}
-                      <span>{tab.label}</span>
+                      <span className="flex-1">{tab.label}</span>
+                      <TabBadge count={tab.badge} />
                     </button>
                   );
                 })}

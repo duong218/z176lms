@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchExamProposals, createExamProposal, updateExamProposal, submitForReview, deleteExamProposal, fetchTopics, fetchQuestionStatsByTopic } from '../../services/examiner.service';
+import { countExaminerTodo } from '../../hooks/useExaminerTodo';
 import { FilePlus, Pencil, Send, Trash2, Ban, AlertCircle, AlertTriangle, Clock, XCircle, ChevronDown } from 'lucide-react';
 import { useToast } from '../ToastContext';
 import { useConfirm } from '../ConfirmDialog';
@@ -151,7 +152,7 @@ const DEFAULT_FORM_DATA = {
 
 // highlightExam: { examId, ts } — yêu cầu từ chuông thông báo (bấm "đã duyệt"/"bị từ chối"): nhảy tới đúng trang,
 // cuộn và tô sáng đúng đề xuất đó. onHighlightConsumed: báo App xóa yêu cầu để lần sau mở lại tab không tô sáng lại.
-export const ExamProposalTab = ({ highlightExam, onHighlightConsumed }) => {
+export const ExamProposalTab = ({ highlightExam, onHighlightConsumed, onTodoChange }) => {
   const { showToast } = useToast();
   const confirmAction = useConfirm();
   const [exams, setExams] = useState([]);
@@ -215,6 +216,11 @@ export const ExamProposalTab = ({ highlightExam, onHighlightConsumed }) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Báo số đề cần xử lý lên Dashboard (huy hiệu đỏ ở menu) ngay sau mỗi thay đổi danh sách
+  useEffect(() => {
+    if (!loading) onTodoChange?.(countExaminerTodo(exams));
+  }, [loading, exams, onTodoChange]);
 
   // Tính trước xem cấu hình (commonQuestionCount/departmentQuestionCount) có
   // khả thi không, THEO ĐÚNG công thức bù mà backend

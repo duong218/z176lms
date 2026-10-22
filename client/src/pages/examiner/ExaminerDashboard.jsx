@@ -25,10 +25,14 @@ export const EXAMINER_DASHBOARD_TABS = [
   { id: 'ai-questions', label: 'Tạo câu hỏi bằng AI', icon: <Sparkles className="w-5 h-5" /> },
 ];
 
+// Gắn huy hiệu số đề cần xử lý (bị từ chối + bản nháp) vào mục "Đề xuất kỳ thi" (thanh bên lẫn menu mobile trong Header)
+export const examinerTabsWithBadge = (count) =>
+  EXAMINER_DASHBOARD_TABS.map((t) => (t.id === 'proposals' ? { ...t, badge: count } : t));
+
 // activeTab/onTabChange giờ là props từ App.jsx (thay vì state nội bộ) — để
 // Header.jsx (menu 3 gạch ở mobile) đọc/đổi được đúng tab đang chọn ở đây.
 // highlightExam/onHighlightConsumed: yêu cầu tô sáng 1 đề xuất khi mở từ chuông thông báo (xem App.jsx).
-export const ExaminerDashboard = ({ currentUser, activeTab, onTabChange, highlightExam, onHighlightConsumed }) => {
+export const ExaminerDashboard = ({ currentUser, activeTab, onTabChange, highlightExam, onHighlightConsumed, todoCount = 0, onTodoChange }) => {
   // Khi bấm "Xem câu hỏi" trên 1 thẻ chủ đề ở tab Chủ đề, hoặc trên 1 thẻ bộ
   // phận ở tab Bộ phận/Phòng ban, lưu filter tương ứng + mốc thời gian
   // (seed) vào đây rồi chuyển sang tab Ngân hàng câu hỏi. Kèm seed để nếu
@@ -55,7 +59,7 @@ export const ExaminerDashboard = ({ currentUser, activeTab, onTabChange, highlig
       </div>
 
       <DashboardShell
-        tabs={EXAMINER_DASHBOARD_TABS}
+        tabs={examinerTabsWithBadge(todoCount)}
         activeTab={activeTab}
         onTabChange={onTabChange}
         idPrefix="examiner"
@@ -69,7 +73,7 @@ export const ExaminerDashboard = ({ currentUser, activeTab, onTabChange, highlig
         {activeTab === 'analysis' && <QuestionAnalysisTab />}
         {activeTab === 'topics' && <TopicTab onViewQuestions={handleViewQuestionsByTopic} />}
         {activeTab === 'departments' && <DepartmentTab onViewQuestions={handleViewQuestionsByDepartment} />}
-        {activeTab === 'proposals' && <ExamProposalTab highlightExam={highlightExam} onHighlightConsumed={onHighlightConsumed} />}
+        {activeTab === 'proposals' && <ExamProposalTab highlightExam={highlightExam} onHighlightConsumed={onHighlightConsumed} onTodoChange={onTodoChange} />}
         {activeTab === 'materials' && <StudyDocumentTab />}
         {activeTab === 'ai-questions' && <QuestionGeneratorTab />}
         {activeTab !== 'ai-questions' && <GenerationBadge onClick={() => onTabChange('ai-questions')} />}

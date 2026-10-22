@@ -24,8 +24,10 @@ import { SESSION_EXPIRED_EVENT } from './services/api';
 import { hasPending, resetGeneration, claimOwner } from './services/question-generation.store';
 import { fetchMyExam } from './services/exam-attempt.service';
 import { AdminDashboard, ADMIN_DASHBOARD_TABS } from './pages/admin/AdminDashboard';
-import { ExaminerDashboard, EXAMINER_DASHBOARD_TABS } from './pages/examiner/ExaminerDashboard';
-import { LeaderDashboard, LEADER_DASHBOARD_TABS } from './pages/leader/LeaderDashboard';
+import { ExaminerDashboard, examinerTabsWithBadge } from './pages/examiner/ExaminerDashboard';
+import { useExaminerTodo } from './hooks/useExaminerTodo';
+import { LeaderDashboard, leaderTabsWithBadge } from './pages/leader/LeaderDashboard';
+import { useLeaderPending } from './hooks/useLeaderPending';
 import { CandidateDashboard } from './pages/candidate/CandidateDashboard';
 import { fetchActiveExam } from './services/exam-review.service';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
@@ -90,6 +92,8 @@ function App() {
   // ── Auth state ─────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [examinerTodo, setExaminerTodo] = useExaminerTodo(currentUser?.roleCode === 'examiner');
+  const [leaderPending, setLeaderPending] = useLeaderPending(currentUser?.roleCode === 'leader');
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   // Nội dung thông báo phiên bị thu hồi. null = không hiện modal.
@@ -418,9 +422,9 @@ function App() {
           activeTab === 'admin-dashboard'
             ? ADMIN_DASHBOARD_TABS
             : activeTab === 'examiner-dashboard'
-              ? EXAMINER_DASHBOARD_TABS
+              ? examinerTabsWithBadge(examinerTodo)
               : activeTab === 'leader-dashboard'
-                ? LEADER_DASHBOARD_TABS
+                ? leaderTabsWithBadge(leaderPending.pending + leaderPending.approved)
                 : []
         }
         dashboardActiveTab={
@@ -474,9 +478,11 @@ function App() {
             onTabChange={setExaminerSubTab}
             highlightExam={examinerHighlight}
             onHighlightConsumed={() => setExaminerHighlight(null)}
+            todoCount={examinerTodo}
+            onTodoChange={setExaminerTodo}
           />
         ) : activeTab === 'leader-dashboard' && currentUser?.roleCode === 'leader' ? (
-          <LeaderDashboard currentUser={currentUser} onLogout={handleLogout} activeTab={leaderSubTab} onTabChange={setLeaderSubTab} />
+          <LeaderDashboard currentUser={currentUser} onLogout={handleLogout} activeTab={leaderSubTab} onTabChange={setLeaderSubTab} pendingCounts={leaderPending} onPendingChange={setLeaderPending} />
         ) : activeTab === 'candidate-dashboard' && currentUser?.roleCode === 'candidate' ? (
           <CandidateDashboard
             currentUser={currentUser}

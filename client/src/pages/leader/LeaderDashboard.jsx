@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UserInfoCard } from '../../components/UserInfoCard';
 import { DashboardShell } from '../../components/DashboardShell';
-import { LayoutDashboard, Building2, FileBarChart, PieChart, CheckCircle, BookOpen, TrendingUp, ShieldAlert, Bot } from 'lucide-react';
+import { Clock, ChevronRight, LayoutDashboard, Building2, FileBarChart, PieChart, CheckCircle, BookOpen, TrendingUp, ShieldAlert, Bot } from 'lucide-react';
 import { OverviewTab } from '../../components/leader/OverviewTab';
 import { DepartmentReportTab } from '../../components/leader/DepartmentReportTab';
 import { ExamReportTab } from '../../components/leader/ExamReportTab';
@@ -37,9 +37,15 @@ export const LEADER_DASHBOARD_TABS = [
   { id: 'assistant', label: 'Trợ lý báo cáo', icon: <Bot className="w-5 h-5" /> },
 ];
 
+// Gắn huy hiệu số việc chờ vào mục "Duyệt kỳ thi" (dùng ở cả thanh bên lẫn menu mobile trong Header)
+export const leaderTabsWithBadge = (count) =>
+  LEADER_DASHBOARD_TABS.map((t) => (t.id === 'review' ? { ...t, badge: count } : t));
+
 // activeTab/onTabChange là props từ App.jsx — để Header.jsx (menu 3 gạch ở
 // mobile) đọc/đổi được đúng tab đang chọn ở đây.
-export const LeaderDashboard = ({ currentUser, activeTab, onTabChange }) => {
+export const LeaderDashboard = ({ currentUser, activeTab, onTabChange, pendingCounts, onPendingChange }) => {
+  const pending = pendingCounts?.pending ?? 0;
+  const approved = pendingCounts?.approved ?? 0;
   const [aiEnabled, setAiEnabled] = useState(false); // admin bật/tắt Trợ lý AI
   useEffect(() => {
     fetchAiStatus()
@@ -61,12 +67,29 @@ export const LeaderDashboard = ({ currentUser, activeTab, onTabChange }) => {
       </div>
 
       <DashboardShell
-        tabs={LEADER_DASHBOARD_TABS}
+        tabs={leaderTabsWithBadge(pending + approved)}
         activeTab={activeTab}
         onTabChange={onTabChange}
         idPrefix="leader"
         label="Các mục báo cáo"
       >
+        {activeTab === 'overview' && pending + approved > 0 && (
+          <button
+            type="button"
+            onClick={() => onTabChange('review')}
+            className="w-full mb-4 flex items-center gap-3 text-left rounded-xl border border-[#F6AD37]/50 bg-[#FFFBEB] px-4 py-3 min-h-[56px] hover:bg-[#FFF3D6] transition-colors"
+          >
+            <Clock className="w-6 h-6 text-[#B45309] shrink-0" aria-hidden="true" />
+            <span className="flex-1 text-base text-[#0F172A]">
+              <span className="font-bold">Có việc đang chờ bạn: </span>
+              {pending > 0 && <span><b>{pending}</b> đề xuất chờ duyệt</span>}
+              {pending > 0 && approved > 0 && ' · '}
+              {approved > 0 && <span><b>{approved}</b> kỳ thi đã duyệt chờ đăng chính thức</span>}
+            </span>
+            <span className="hidden sm:inline text-sm font-semibold text-[#B45309]">Xử lý ngay</span>
+            <ChevronRight className="w-5 h-5 text-[#B45309] shrink-0" aria-hidden="true" />
+          </button>
+        )}
         {activeTab === 'overview' && <UserInfoCard user={currentUser} />}
         {activeTab === 'overview' && <OverviewTab />}
         {activeTab === 'department' && <DepartmentReportTab />}
@@ -74,7 +97,7 @@ export const LeaderDashboard = ({ currentUser, activeTab, onTabChange }) => {
         {activeTab === 'anomaly' && <AnomalyTab />}
         {activeTab === 'exam' && <ExamReportTab />}
         {activeTab === 'detailed' && <DetailedResultsTab />}
-        {activeTab === 'review' && <ExamReviewTab />}
+        {activeTab === 'review' && <ExamReviewTab onCountsChange={onPendingChange} />}
         {/* Luôn mount (chỉ ẩn) để đổi mục rồi quay lại không mất hội thoại */}
         <div hidden={activeTab !== 'assistant'}>
           {aiEnabled ? (
