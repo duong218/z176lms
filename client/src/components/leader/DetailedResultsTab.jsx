@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, Search, Filter, ChevronLeft, ChevronRight, RotateCcw, Lock, CheckCircle2, Circle, X } from 'lucide-react';
-import { fetchDetailedResults, exportReport } from '../../services/report.service';
+import { fetchDetailedResults, exportReport, fetchReportExams } from '../../services/report.service';
 import { grantExtraAttempt, fetchCandidateRoleOptions } from '../../services/exam-review.service';
 import { useToast } from '../ToastContext';
 import { useConfirm } from '../ConfirmDialog';
@@ -36,9 +36,16 @@ export const DetailedResultsTab = () => {
   const [filters, setFilters] = useState({
     search: '',
     passed: '',
+    examId: '',
     startDate: '',
     endDate: '',
   });
+
+  const [exams, setExams] = useState([]);
+
+  useEffect(() => {
+    fetchReportExams().then((res) => setExams(res.data || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadData(1);
@@ -212,6 +219,17 @@ export const DetailedResultsTab = () => {
               <option value="true">Đạt</option>
               <option value="false">Không đạt</option>
               <option value="absent">Chưa thi</option>
+            </Select>
+          </div>
+          <div className="w-full md:w-56">
+            <Select
+              name="examId"
+              value={filters.examId}
+              onChange={handleFilterChange}
+              className="w-full h-12 px-4 bg-white border border-[#E2E8F0] rounded-[10px] text-base text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0693E3] focus:border-[#008BC5]"
+            >
+              <option value="">Tất cả bài thi</option>
+              {exams.map((e) => <option key={e._id} value={e._id}>{e.title}</option>)}
             </Select>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">

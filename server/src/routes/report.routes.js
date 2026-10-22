@@ -23,6 +23,7 @@ router.use(authenticate, requireRoleCodes('leader', 'admin'));
 router.get('/overview', reportController.getOverviewStats);
 router.get('/by-department', reportController.getResultsByDepartment);
 router.get('/topics', reportController.getTopicOptions);
+router.get('/exams', reportController.getExamOptions);
 router.get('/by-exam', reportController.getResultsByExam);
 router.get('/results', reportController.getDetailedResults);
 router.get('/export', reportController.exportDetailedResultsExcel);

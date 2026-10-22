@@ -34,6 +34,11 @@ export const reportController = {
     });
   }),
 
+  // Danh sách bài thi làm bộ lọc ở tab Kết quả chi tiết
+  getExamOptions: asyncHandler(async (req, res) => {
+    res.json({ success: true, data: await reportService.getExamOptions() });
+  }),
+
   // Thống kê kết quả thi theo từng Bài thi / Chủ đề chuyên môn
   getResultsByExam: asyncHandler(async (req, res) => {
     const data = await reportService.getResultsByExam();
@@ -71,6 +76,7 @@ export const reportController = {
       startDate: req.query.startDate,
       endDate: req.query.endDate,
       search: req.query.search,
+      examId: req.query.examId,
     };
     const data = await reportService.getDetailedResults(filters);
     res.json({
@@ -87,6 +93,7 @@ export const reportController = {
       startDate: req.query.startDate,
       endDate: req.query.endDate,
       search: req.query.search,
+      examId: req.query.examId,
     };
     const buffer = await reportService.exportDetailedResultsExcel(filters);
 

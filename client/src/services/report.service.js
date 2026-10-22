@@ -30,6 +30,13 @@ export const fetchReportTopics = async () => {
   });
 };
 
+// MỚI — Danh sách bài thi cho ô lọc "Bài thi" ở tab Kết quả chi tiết. Trả về { success, data: [{ _id, title }] }
+export const fetchReportExams = async () => {
+  return apiRequest('/reports/exams', {
+    headers: getAuthHeaders(),
+  });
+};
+
 // MỚI — Thống kê kết quả thi theo Bài thi (exam/topic).
 export const fetchResultsByExam = async () => {
   return apiRequest('/reports/by-exam', {
@@ -58,6 +65,7 @@ export const fetchDetailedResults = async (filters = {}) => {
   if (filters.startDate) query.append('startDate', filters.startDate);
   if (filters.endDate) query.append('endDate', filters.endDate);
   if (filters.search) query.append('search', filters.search);
+  if (filters.examId) query.append('examId', filters.examId);
 
   return apiRequest(`/reports/results?${query.toString()}`, {
     headers: getAuthHeaders(),
@@ -105,6 +113,7 @@ export const exportReport = async (filters = {}) => {
   if (filters.startDate) query.append('startDate', filters.startDate);
   if (filters.endDate) query.append('endDate', filters.endDate);
   if (filters.search) query.append('search', filters.search);
+  if (filters.examId) query.append('examId', filters.examId);
 
   await downloadReportBlob(`/reports/export?${query.toString()}`, 'ket_qua_thi.xlsx');
 };

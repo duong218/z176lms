@@ -9,6 +9,7 @@ import ExcelJS from 'exceljs';
 import { Result } from '../models/result.model.js';
 import { Employee } from '../models/employee.model.js';
 import { ExamCandidate } from '../models/exam-candidate.model.js';
+import { Exam } from '../models/exam.model.js';
 
 // Pipeline kết nối cơ sở (Base Pipeline): Result -> ExamAttempt -> ExamCandidate -> Employee -> Department -> Exam -> Topic
 // Phòng ban của 1 kết quả = phòng ban (vai trò) thí sinh đã thi ở lượt thi đó (ExamAttempt.departmentId); lượt thi cũ chưa có
@@ -94,6 +95,13 @@ function escapeRegex(str) {
   return String(str ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Lọc theo BÀI THI (kỳ thi): gắn 'exam._id' vào match. Dùng chung cho cả nhánh Result lẫn nhánh "Chưa thi"
+// (cả hai pipeline đều đã có trường `exam`). examId sai định dạng -> không khớp gì (không bỏ lọc, tránh hiện nhầm toàn bộ).
+const applyExamFilter = (match, examId) => {
+  if (!examId) return;
+  match['exam._id'] = mongoose.Types.ObjectId.isValid(examId) ? new mongoose.Types.ObjectId(examId) : { $in: [] };
+};
+
 // Pipeline "CHƯA THI": thí sinh đã được xếp vào kỳ thi (ExamCandidate, tạo lúc phát hành đề) nhưng chưa có lượt thi CHÍNH THỨC nào.
 // Không có Result để lọc nên truy vấn từ ExamCandidate. Chỉ tính nhân viên còn hoạt động (người đã nghỉ không phải "vắng thi").
 // Phòng ban = phòng của mã đề được gán (vai trò sẽ thi); thiếu mã đề thì dùng phòng chính. Mới nhất lên trước.
@@ -106,6 +114,7 @@ export const absentPipeline = (filters = {}) => {
   if (filters.search) {
     match['employee.fullname'] = { $regex: escapeRegex(filters.search), $options: 'i' };
   }
+  applyExamFilter(match, filters.examId);
   return [
     { $lookup: { from: 'examattempts', localField: '_id', foreignField: 'examCandidateId', as: 'attempts' } },
     { $match: { 'attempts.attemptType': { $ne: 'official' } } },
@@ -317,6 +326,12 @@ export const reportService = {
     return Result.aggregate(pipeline);
   },
 
+  // Danh sách bài thi cho ô lọc: mọi kỳ thi đã có thí sinh được xếp (kể cả kỳ chưa ai nộp bài -> vẫn lọc được "Chưa thi"). Mới nhất lên trước.
+  async getExamOptions() {
+    const ids = await ExamCandidate.distinct('examId');
+    return Exam.find({ _id: { $in: ids } }).select('title').sort({ createdAt: -1 }).lean();
+  },
+
   // Lấy tỷ lệ thi đạt theo phòng ban cho Trang chủ Công khai (Không cần đăng nhập, ẩn các thông tin nhạy cảm)
   async getPublicResultsByDepartment() {
     const pipeline = [
@@ -404,6 +419,7 @@ export const reportService = {
     if (filters.search) {
       matchStage['employee.fullname'] = { $regex: filters.search, $options: 'i' };
     }
+    applyExamFilter(matchStage, filters.examId);
 
     const page = parseInt(filters.page, 10) || 1;
     const limit = parseInt(filters.limit, 10) || 20;
@@ -480,6 +496,7 @@ export const reportService = {
     if (filters.search) {
       matchStage['employee.fullname'] = { $regex: filters.search, $options: 'i' };
     }
+    applyExamFilter(matchStage, filters.examId);
 
     const absent = filters.passed === 'absent'; // "Chưa thi": xuất danh sách thí sinh chưa có lượt thi nào
     const data = absent

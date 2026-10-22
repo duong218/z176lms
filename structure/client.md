@@ -70,7 +70,7 @@ client/
 │   │   ├── AccountTab.jsx                  # Tab quản lý tài khoản: CRUD user, tạo inline phòng ban, import Excel 2 bước (xử lý phòng ban kiêm nhiệm & tự tạo phòng thiếu kèm mã), sửa phòng ban chính/kiêm nhiệm (updateEmployeeDepartments), xuất Excel credentials, phân role, khóa/mở, reset password, useScrollLock
 │   │   ├── AiSettingsTab.jsx               # Tab cấu hình Trợ lý AI: Admin cài đặt URL/API Key/Model/System Prompt/Giới hạn context cho LLM (chuẩn tương thích OpenAI / Gemini), bật/tắt toàn hệ thống
 │   │   ├── AuditLogTab.jsx                 # Tab nhật ký hệ thống: phân trang, lọc theo action/user/resource/thời gian, tìm kiếm nhân viên, chi tiết metadata
-│   │   ├── BackupTab.jsx                   # Tab sao lưu & phục hồi: danh sách backup Drive, tạo backup, restore file .gz với progress % và phrase xác nhận
+│   │   ├── BackupTab.jsx                   # Tab sao lưu & phục hồi: danh sách backup Drive, tạo backup (hỗ trợ mã hóa AES-256-GCM .gz.enc), restore file .gz / .gz.enc với progress % và phrase xác nhận 'XOA DU LIEU HIEN TAI'
 │   │   └── OverviewTab.jsx                 # Tab tổng quan admin: thống kê tài khoản theo role, kỳ thi active, số lượng câu hỏi
 │   │
 │   ├── components/candidate/

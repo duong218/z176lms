@@ -12,7 +12,9 @@ server/
 ├── package-lock.json                               # Lockfile quản lý phiên bản gói npm
 ├── test/
 │   ├── test-analytics.mjs                          # Kiểm thử service phân tích bằng dữ liệu giả lập (node test/test-analytics.mjs): hàm thuần computeQuestionStats, tallyByTopic, buildTopicCompetency, pickWeakest, detectAnomalies và luồng DB giả lập getMyCompetency, getDepartmentCompetency, getQuestionAnalysis, getAnomalies
-│   └── test_rate_limit.js                          # Kịch bản kiểm thử tự động cơ chế Rate Limiting
+│   ├── test_backup_crypto.mjs                      # Kiểm thử mã hóa & giải mã bản sao lưu CSDL (AES-256-GCM) độc lập: kiểm tra encryptFile, decryptFile, isEncrypted, phát hiện sai khóa, phát hiện file bị sửa/hỏng
+│   ├── test_rate_limit.js                          # Kịch bản kiểm thử tự động cơ chế Rate Limiting
+│   └── test_refresh_cookie.mjs                     # Kịch bản kiểm thử cookie refresh token
 └── src/
     ├── app.js                                      # Khởi tạo Express app: Helmet, CORS, cookie parser, JSON body, mount routes, global error handler
     ├── index.js                                    # Entry point máy chủ: validate biến môi trường, kết nối MongoDB, chạy seed khởi tạo, đăng ký cron schedulers, lắng nghe cổng
@@ -24,7 +26,7 @@ server/
     │   ├── analytics.controller.js                 # Xử lý request phân tích: chất lượng câu hỏi (Người ra đề), năng lực theo phòng ban (Người duyệt đề), dấu hiệu bất thường theo kỳ thi (Người duyệt đề), năng lực cá nhân (Thí sinh)
     │   ├── audit.controller.js                     # Xử lý request tra cứu nhật ký hệ thống (phân trang, lọc theo action/user/resource/thời gian)
     │   ├── auth.controller.js                      # Xử lý request xác thực: đăng nhập, refresh token, đăng xuất, lấy hồ sơ cá nhân (/me), đổi mật khẩu
-    │   ├── backup.controller.js                    # Xử lý request sao lưu: danh sách bản lưu trên Drive, tạo sao lưu mới, tải về máy, khôi phục từ file .gz
+    │   ├── backup.controller.js                    # Xử lý request sao lưu: danh sách bản lưu trên Drive, tạo sao lưu mới (mã hóa AES-256-GCM .gz.enc), tải về máy, khôi phục từ file .gz/.gz.enc an toàn
     │   ├── department.controller.js                # Xử lý request CRUD phòng ban: bắt buộc cả tên và mã phòng ban (code chuẩn hóa), ngừng sử dụng (xóa mềm) và khôi phục
     │   ├── exam.controller.js                      # Xử lý request kỳ thi: tạo dự thảo, cấu hình phạm vi phòng ban dự thi (departmentScope: all/selected, allowedDepartmentIds), công tắc bù câu chung (allowCommonCompensation), chỉnh sửa đề xuất, nộp duyệt, phê duyệt, từ chối, kiểm tra tác động publish-check, phát hành, lưu trữ, lấy kỳ thi active
     │   ├── exam-attempt.controller.js              # Xử lý request lượt thi: lấy đề thi, bắt đầu/resume (chặn thí sinh ngoài phạm vi với CANDIDATE_OUT_OF_SCOPE, chọn vai trò/phòng ban), nộp bài, autosave đáp án, heartbeat 15s, lấy danh sách vai trò để cấp lượt (role-options) và cấp thêm lượt kèm đổi vai trò
@@ -84,7 +86,8 @@ server/
     │   ├── topic.routes.js                         # Tuyến API CRUD chủ đề thi (Admin, Examiner)
     │   └── user.routes.js                          # Tuyến API quản lý người dùng: CRUD, sửa phòng ban chính/kiêm nhiệm, import/export Excel, phân role, khóa/mở, reset mật khẩu (Admin)
     ├── scripts/
-    │   ├── backup-cli.js                           # CLI script sao lưu CSDL thủ công (dump -> nén .gz -> upload Drive và xoay vòng)
+    │   ├── backup-cli.js                           # CLI script sao lưu CSDL thủ công (dump -> mã hóa AES-256-GCM nếu có cấu hình -> upload Drive và xoay vòng)
+│   │   ├── cleanup-duplicate-attempts.js           # CLI script dọn dẹp các lượt thi trùng lặp phát sinh do concurrency
     │   ├── cleanup-tmp-employees.js                # Script dọn dẹp dữ liệu nhân viên tạm (tạo trong quá trình import)
     │   ├── get-google-refresh-token.js             # Script tạo và lấy Google Drive Refresh Token OAuth2 lần đầu
     │   └── seed-cli.js                             # CLI script khởi tạo 4 vai trò mặc định và tài khoản Admin ban đầu
@@ -97,7 +100,7 @@ server/
     │   ├── audit.service.js                        # Ghi log vết hành động, truy vấn/lọc/phân trang nhật ký hệ thống (hỗ trợ tìm kiếm theo nhân viên/phòng ban)
     │   ├── auth.service.js                         # Logic xác thực: kiểm tra bcrypt, tạo JWT Access/Refresh tokens, set cookie, tăng tokenVersion
     │   ├── backup.scheduler.js                     # Cron scheduler: Tự động sao lưu dữ liệu lúc 03:00 hàng ngày (Asia/Ho_Chi_Minh)
-    │   ├── backup.service.js                       # Logic sao lưu: mongodump nén .gz, kết nối Google Drive API v3, upload, xoay vòng lưu trữ tối đa 5 bản, khôi phục mongorestore --drop
+    │   ├── backup.service.js                       # Logic sao lưu: mongodump nén .gz, mã hóa AES-256-GCM (bắt buộc trên production với BACKUP_ENCRYPTION_KEY, tạo file .gz.enc), upload Google Drive API v3, xoay vòng lưu trữ tối đa 5 bản, giải mã an toàn trước khi khôi phục mongorestore --drop
     │   ├── department.service.js                   # Logic phòng ban: CRUD, bắt buộc cả name và code (chuẩn hóa normalizeDeptCode), xóa mềm, tự động khôi phục khi tạo trùng, slugify chuẩn hóa tiếng Việt, upsert phòng ban khi import Excel/Word
     │   ├── exam.service.js                         # Logic kỳ thi: tạo dự thảo, cấu hình phạm vi phòng ban dự thi (toàn bộ hoặc chọn lọc), công tắc bù câu chung (allowCommonCompensation), kiểm tra tác động publishCheck (getActiveAttemptImpact), chỉnh sửa đề xuất, đệ trình duyệt, approve/reject kèm lý do, publish, archive
     │   ├── exam-attempt.service.js                 # Logic làm bài thi chính thức: kiểm tra tính hợp lệ phạm vi phòng ban (chặn CANDIDATE_OUT_OF_SCOPE), xác nhận vai trò/phòng ban thi (chính hoặc kiêm nhiệm), sinh snapshot câu hỏi xáo trộn, start/resume (bảo vệ lỗi trùng khóa E11000 chuyển thành resume), autosave, heartbeat giữ phiên, tự nộp khi vắng mặt >1 phút, chấm điểm tự động, cấp thêm lượt thi bằng $inc nguyên tử kèm đổi vai trò
@@ -125,7 +128,7 @@ server/
   1. `assertRuntimeEnv()`: Kiểm tra sự tồn tại đầy đủ của các biến môi trường bắt buộc (Cổng, MongoDB URI, JWT Secrets, Cloudinary, Google OAuth...).
   2. `connectDatabase()`: Kết nối tới cụm MongoDB qua Mongoose.
   3. `runStartupSeed()`: Nếu cấu hình `SEED_ON_START=true`, kiểm tra và khởi tạo 4 vai trò mặc định cùng tài khoản Admin quản trị ban đầu.
-  4. `initBackupScheduler()`: Đăng ký tiến trình cron chạy tự động vào **03:00 hàng ngày** để dump database, nén `.gz`, đẩy lên Google Drive và giữ lại tối đa 5 bản sao lưu mới nhất.
+  4. `initBackupScheduler()`: Đăng ký tiến trình cron chạy tự động vào **03:00 hàng ngày** để dump database, nén `.gz`, mã hóa AES-256-GCM (nếu cấu hình `BACKUP_ENCRYPTION_KEY`, tạo file `.gz.enc`), đẩy lên Google Drive và giữ lại tối đa 5 bản sao lưu mới nhất.
   5. `initUploadCleanupScheduler()`: Đăng ký tiến trình cron chạy **mỗi 1 giờ** để quét và xóa sạch các file tạm còn tồn đọng trong thư mục upload quá 6 tiếng.
   6. `initAccountPurgeScheduler()`: Đăng ký tiến trình cron chạy vào **04:00 hàng ngày** để quét và xóa cứng các tài khoản bị khóa liên tục quá 6 tháng (`lockedAt <= now - 6m`) và không có dấu vết lịch sử (chưa từng thi, chưa từng ghi audit log).
   7. `initAbandonedAttemptScheduler()`: Đăng ký tiến trình cron chạy **mỗi 1 phút (`* * * * *`)** để tự động quét, thu hồi và nộp/chấm điểm các lượt thi bị bỏ rơi (thí sinh tắt tab/máy không tương tác quá 60s), tránh để bài thi treo vĩnh viễn ở trạng thái `in_progress`.
@@ -314,9 +317,9 @@ server/
 | Method | Endpoint | Quyền hạn | Chức năng |
 |---|---|---|---|
 | `GET` | `/api/backups` | Admin | Xem danh sách các bản sao lưu đang lưu trữ trên Google Drive. |
-| `POST` | `/api/backups` | Admin | Tạo một bản sao lưu CSDL thủ công tức thì lên Google Drive (tự động xoay vòng tối đa 5 bản). |
-| `GET` | `/api/backups/:fileId/download` | Admin | Tải một bản sao lưu cụ thể từ Google Drive về máy tính cá nhân. |
-| `POST` | `/api/backups/restore` | Admin | Tải tệp `.gz` lên để khôi phục toàn bộ cơ sở dữ liệu (`mongorestore --drop`). |
+| `POST` | `/api/backups` | Admin | Tạo một bản sao lưu CSDL thủ công tức thì lên Google Drive (mã hóa AES-256-GCM .gz.enc, tự động xoay vòng tối đa 5 bản). |
+| `GET` | `/api/backups/:fileId/download` | Admin | Tải một bản sao lưu cụ thể từ Google Drive về máy tính cá nhân (`.gz.enc` hoặc `.gz`). |
+| `POST` | `/api/backups/restore` | Admin | Tải tệp `.gz` hoặc `.gz.enc` lên để khôi phục toàn bộ cơ sở dữ liệu (tự động phát hiện mã hóa, giải mã và xác thực toàn vẹn trước khi `mongorestore --drop`). |
 
 ### 15. `/api/reports` — Thống kê & Báo cáo
 | Method | Endpoint | Quyền hạn | Chức năng |
