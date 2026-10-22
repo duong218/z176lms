@@ -172,6 +172,8 @@ export const ExamProposalTab = ({ highlightExam, onHighlightConsumed, onTodoChan
   // MỚI — Trang hiện tại của danh sách đề xuất (phân trang client-side, 10
   // kỳ thi/trang). Reset về trang 1 mỗi khi tải lại danh sách (xem loadData).
   const [page, setPage] = useState(1);
+  // Bộ lọc theo trạng thái ('all' hoặc một status của đề xuất), lọc phía client.
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
 
@@ -553,6 +555,7 @@ export const ExamProposalTab = ({ highlightExam, onHighlightConsumed, onTodoChan
     onHighlightConsumed?.();
     const index = exams.findIndex((e) => e._id === targetId);
     if (index === -1) return; // đề không còn trong danh sách: chỉ mở tab, không tô sáng
+    setStatusFilter('all'); // index tính trên toàn bộ danh sách nên phải bỏ lọc
     setPage(Math.floor(index / PAGE_SIZE) + 1);
     setHighlightedId(targetId);
   }, [loading, exams]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -584,8 +587,15 @@ export const ExamProposalTab = ({ highlightExam, onHighlightConsumed, onTodoChan
   // MỚI — Cắt danh sách theo trang hiện tại (10 kỳ thi/trang). exams giữ
   // nguyên toàn bộ dữ liệu gốc (không đổi) — chỉ pagedExams (phần hiển thị)
   // thay đổi theo `page`.
-  const totalPages = Math.max(1, Math.ceil(exams.length / PAGE_SIZE));
-  const pagedExams = exams.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const statusCounts = exams.reduce((acc, e) => ({ ...acc, [e.status]: (acc[e.status] ?? 0) + 1 }), {});
+  const filteredExams = statusFilter === 'all' ? exams : exams.filter((e) => e.status === statusFilter);
+  const totalPages = Math.max(1, Math.ceil(filteredExams.length / PAGE_SIZE));
+  const pagedExams = filteredExams.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const handleFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -618,6 +628,36 @@ export const ExamProposalTab = ({ highlightExam, onHighlightConsumed, onTodoChan
         </div>
       ) : (
         <>
+          {/* Lọc theo trạng thái: chỉ hiện trạng thái đang có đề xuất (và trạng thái đang chọn) */}
+          <div role="group" aria-label="Lọc theo trạng thái" className="animate-fade-in-up flex gap-2 overflow-x-auto pb-1" style={{ '--stagger-delay': '40ms' }}>
+            {[['all', 'Tất cả', exams.length], ...Object.entries(STATUS_TEXT_LABELS).map(([k, label]) => [k, label, statusCounts[k] ?? 0])]
+              .filter(([key, , count]) => key === 'all' || count > 0 || key === statusFilter)
+              .map(([key, label, count]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleFilterChange(key)}
+                  aria-pressed={statusFilter === key}
+                  className={`shrink-0 px-4 min-h-[44px] rounded-[10px] text-base font-semibold border transition-colors ${
+                    statusFilter === key
+                      ? 'bg-[#008BC5] border-[#008BC5] text-white'
+                      : 'bg-white border-[#CBD5E1] text-[#334155] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  {label} ({count})
+                </button>
+              ))}
+          </div>
+
+          {filteredExams.length === 0 && (
+            <div className="bg-white rounded-xl border border-[#E2E8F0] p-8 text-center text-base text-[#334155]">
+              Không có đề xuất nào ở trạng thái "{STATUS_TEXT_LABELS[statusFilter]}".{' '}
+              <button type="button" onClick={() => handleFilterChange('all')} className="font-semibold text-[#006BA1] underline min-h-[44px]">
+                Xem tất cả
+              </button>
+            </div>
+          )}
+
           {/* Một danh sách thẻ duy nhất cho mọi kích thước: mobile xếp dọc, desktop (lg) đẩy nút thao tác sang cột phải. */}
           <ul className="animate-fade-in-up space-y-3" style={{ '--stagger-delay': '80ms' }}>
             {pagedExams.map((exam) =>
