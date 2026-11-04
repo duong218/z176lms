@@ -10,6 +10,7 @@
     "dev": "node --watch-path=src src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seed-cli.js",
+    "reset-admin": "node src/scripts/reset-admin-cli.js",
     "backup": "node src/scripts/backup-cli.js",
     "lint": "node -e \"process.exit(0)\""
   },

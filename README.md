@@ -172,10 +172,15 @@ Hệ thống phân chia rõ ràng 4 nhóm vai trò nghiệp vụ (Role) hoạt �
         VITE_API_URL=http://localhost:5000/api
         ```
 
-4.  **Khởi tạo dữ liệu mẫu (Seed Data):**
+4.  **Khởi tạo dữ liệu mẫu (Seed Data) & Khôi phục Admin:**
     ```bash
     cd server
     npm run seed
+    ```
+    *Nếu lỡ quên mật khẩu tài khoản Admin hoặc tài khoản bị khóa tạm thời, chạy lệnh:*
+    ```bash
+    npm run reset-admin [mật_khẩu_mới]
+    # Ví dụ: npm run reset-admin 123456
     ```
 
 5.  **Chạy ứng dụng ở môi trường phát triển (Dev):**
